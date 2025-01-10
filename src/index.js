@@ -1,6 +1,6 @@
 import express from 'express'; // Import express
 const app = express();             // Create an express app
-const port = 3000;                 // Set the port
+const port = 80;                 // Set the port
 
 // Define the default route
 app.get('/', (req, res) => {
