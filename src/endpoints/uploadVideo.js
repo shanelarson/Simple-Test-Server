@@ -30,6 +30,7 @@ router.post('/', upload.single('video'), async (req, res) => {
       s3Url = s3Result.url;
       s3Key = s3Result.key;
     } catch (err) {
+      console.error('S3 upload error:', err);
       return res.status(500).json({ error: 'Failed to upload to S3.' });
     }
     // Insert document in MongoDB
@@ -58,5 +59,6 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
 

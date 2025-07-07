@@ -7,7 +7,6 @@ const BUCKET = process.env.AWS_S3_BUCKET_NAME || process.env.AWS_BUCKET_NAME || 
 const PUBLIC_URL = process.env.AWS_S3_PUBLIC_URL || '';
 
 const s3 = new S3Client({ region: REGION });
-
 export async function uploadToS3(fileBuffer, mimetype, originalname) {
   if (!BUCKET || !REGION) {
     throw new Error('Missing AWS S3 bucket or region configuration');
@@ -23,7 +22,12 @@ export async function uploadToS3(fileBuffer, mimetype, originalname) {
     ContentType: mimetype,
     ACL: 'public-read',
   };
-  await s3.send(new PutObjectCommand(uploadParams));
+  try {
+    await s3.send(new PutObjectCommand(uploadParams));
+  } catch (err) {
+    console.error('S3 upload error:', err);
+    throw err;
+  }
 
   // Compose public URL (using standard S3 URL form)
   let url;
@@ -40,3 +44,4 @@ export async function deleteFromS3(key) {
   if (!BUCKET) throw new Error('Missing S3 bucket');
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
+
