@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { uploadVideoToS3 } from '../functions/s3Upload.js';
+import { uploadToS3 } from '../utils/s3Upload.js';
 import { insertVideo } from '../utils/mongo.js';
 
 const router = Router();
@@ -22,12 +22,11 @@ router.post('/', upload.single('video'), async (req, res) => {
     // S3 Upload
     let s3Url, s3Key;
     try {
-      const s3Result = await uploadVideoToS3({
-        buffer: videoFile.buffer,
-        originalname: videoFile.originalname,
-        mimetype: videoFile.mimetype,
-        size: videoFile.size
-      });
+      const s3Result = await uploadToS3(
+        videoFile.buffer,
+        videoFile.mimetype,
+        videoFile.originalname
+      );
       s3Url = s3Result.url;
       s3Key = s3Result.key;
     } catch (err) {
@@ -49,8 +48,8 @@ router.post('/', upload.single('video'), async (req, res) => {
     } catch (mongoError) {
       // Clean up the just-uploaded S3 object if DB error
       try {
-        const { deleteS3Object } = await import('../functions/s3Upload.js');
-        await deleteS3Object(s3Key);
+        const { deleteFromS3 } = await import('../utils/s3Upload.js');
+        await deleteFromS3(s3Key);
       } catch {}
       res.status(500).json({ error: 'Video upload succeeded but database insertion failed.' });
     }
@@ -59,4 +58,5 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
