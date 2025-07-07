@@ -167,33 +167,52 @@
           .catch(() => setError('Failed to upload video.'))
           .finally(() => setUploading(false));
       }
-
-      return (
-        <form className="upload-form" onSubmit={handleSubmit}>
-          <h2>Upload Video</h2>
-          <input
-            type="text"
-            placeholder="Title"
-            maxLength={100}
-            value={title}
-            onChange={e => setTitle(e.target.value)} required
-          />
-          <textarea
-            placeholder="Description (optional)"
-            value={desc}
-            rows={3}
-            onChange={e => setDesc(e.target.value)}
-          />
-          <input
-            type="file"
-            accept="video/*"
-            onChange={e => setFile(e.target.files[0])}
-            required
-          />
-          <button type="submit" disabled={uploading}>{uploading ? 'Uploading...' : 'Upload'}</button>
-          {error && <div style={{color: 'crimson'}}>{error}</div>}
-          {success && <div style={{color: 'green'}}>{success}</div>}
-        </form>
+      return React.createElement(
+        "form",
+        {
+          className: "upload-form",
+          onSubmit: handleSubmit
+        },
+        React.createElement("h2", null, "Upload Video"),
+        React.createElement("input", {
+          type: "text",
+          placeholder: "Title",
+          maxLength: 100,
+          value: title,
+          onChange: e => setTitle(e.target.value),
+          required: true
+        }),
+        React.createElement("textarea", {
+          placeholder: "Description (optional)",
+          value: desc,
+          rows: 3,
+          onChange: e => setDesc(e.target.value)
+        }),
+        React.createElement("input", {
+          type: "file",
+          accept: "video/*",
+          onChange: e => setFile(e.target.files[0]),
+          required: true
+        }),
+        React.createElement(
+          "button",
+          { type: "submit", disabled: uploading },
+          uploading ? "Uploading..." : "Upload"
+        ),
+        error
+          ? React.createElement(
+              "div",
+              { style: { color: "crimson" } },
+              error
+            )
+          : null,
+        success
+          ? React.createElement(
+              "div",
+              { style: { color: "green" } },
+              success
+            )
+          : null
       );
     }
 
@@ -208,27 +227,57 @@
           .then(data => setVideos(Array.isArray(data) ? data : []))
           .finally(() => setLoading(false));
       }, [refreshTrigger]);
-
-      return (
-        <div className="video-list">
-          <h2>Uploaded Videos</h2>
-          {loading && <div>Loading...</div>}
-          {!loading && !videos.length && <div>No videos uploaded yet.</div>}
-          {videos.map((v, i) => (
-            <div className="video-card" key={v._id || i}>
-              <div className="video-info">
-                <div className="video-title">{v.title}</div>
-                <div className="video-date">Uploaded: {formatDate(v.date)}</div>
-                {v.description ? <div>{v.description}</div> : null}
-              </div>
-              {v.url ? (
-                <video src={v.url} controls preload="metadata" />
-              ) : (
-                <div style={{background:'#eee',height:160,width:'100%',textAlign:'center'}}>No video URL</div>
-              )}
-            </div>
-          ))}
-        </div>
+      return React.createElement(
+        "div",
+        { className: "video-list" },
+        React.createElement("h2", null, "Uploaded Videos"),
+        loading
+          ? React.createElement("div", null, "Loading...")
+          : null,
+        !loading && !videos.length
+          ? React.createElement("div", null, "No videos uploaded yet.")
+          : null,
+        videos.map((v, i) =>
+          React.createElement(
+            "div",
+            {
+              className: "video-card",
+              key: v._id || i
+            },
+            React.createElement(
+              "div",
+              { className: "video-info" },
+              React.createElement("div", { className: "video-title" }, v.title),
+              React.createElement(
+                "div",
+                { className: "video-date" },
+                "Uploaded: ",
+                formatDate(v.date)
+              ),
+              v.description
+                ? React.createElement("div", null, v.description)
+                : null
+            ),
+            v.url
+              ? React.createElement("video", {
+                  src: v.url,
+                  controls: true,
+                  preload: "metadata"
+                })
+              : React.createElement(
+                  "div",
+                  {
+                    style: {
+                      background: "#eee",
+                      height: 160,
+                      width: "100%",
+                      textAlign: "center"
+                    }
+                  },
+                  "No video URL"
+                )
+          )
+        )
       );
     }
 
@@ -236,26 +285,54 @@
       // Refresh key triggers video list reload
       const [tab, setTab] = useState('upload');
       const [refresh, setRefresh] = useState(0);
-      return (
-        <div>
-          <h1>Simple Video Sharing Platform</h1>
-          <div className="tabs">
-            <button
-              className={tab==='upload' ? 'tab active':'tab'}
-              onClick={()=>setTab('upload')}
-            >Upload</button>
-            <button
-              className={tab==='list' ? 'tab active':'tab'}
-              onClick={()=>setTab('list')}
-            >View Uploaded Videos</button>
-          </div>
-          {tab === 'upload' && <UploadVideo onUpload={()=>{ setRefresh(x=>x+1); setTab('list'); }}/>} 
-          {tab === 'list' && <VideoList refreshTrigger={refresh} />}
-        </div>);
+      return React.createElement(
+        "div",
+        null,
+        React.createElement("h1", null, "Simple Video Sharing Platform"),
+        React.createElement(
+          "div",
+          { className: "tabs" },
+          React.createElement(
+            "button",
+            {
+              className: tab === "upload" ? "tab active" : "tab",
+              onClick: function () {
+                setTab("upload");
+              }
+            },
+            "Upload"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: tab === "list" ? "tab active" : "tab",
+              onClick: function () {
+                setTab("list");
+              }
+            },
+            "View Uploaded Videos"
+          )
+        ),
+        tab === "upload"
+          ? React.createElement(UploadVideo, {
+              onUpload: function () {
+                setRefresh(function (x) {
+                  return x + 1;
+                });
+                setTab("list");
+              }
+            })
+          : null,
+        tab === "list"
+          ? React.createElement(VideoList, {
+              refreshTrigger: refresh
+            })
+          : null
+      );
     }
-    
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    root.render(React.createElement(App));
   </script>
 </body>
 </html>
+
