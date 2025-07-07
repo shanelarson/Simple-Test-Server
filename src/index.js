@@ -1,17 +1,2 @@
-import express from 'express'; // Import express
-const app = express();             // Create an express app
-const port = 10000;                 // Set the port
+// Video Sharing Platform Server Entry Index File
 
-// Define the default route
-app.get('/', (req, res) => {
-    res.send('Hello, World!'); // Send "Hello, World!" as the response
-});
-
-app.get('/health', (req, res) => {
-    res.sendStatus(200); // Respond with HTTP status code 200
-});
-
-// Start the server
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
