@@ -20,7 +20,6 @@ export async function uploadToS3(fileBuffer, mimetype, originalname) {
     Key: key,
     Body: fileBuffer,
     ContentType: mimetype,
-    ACL: 'public-read',
   };
   try {
     await s3.send(new PutObjectCommand(uploadParams));
