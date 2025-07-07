@@ -1,3 +1,8 @@
+// Load environment variables from .env file first
+import 'dotenv/config';
+
+
+
 // Video Sharing Platform Server Entry Index File
 import express from 'express';
 import cors from 'cors';
@@ -41,4 +46,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
