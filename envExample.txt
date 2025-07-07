@@ -1,0 +1,3 @@
+# Example .env file for Video Sharing App
+# Set the port for the Express server to listen on
+PORT=5000
