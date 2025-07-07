@@ -1,6 +1,5 @@
-// In-memory mock database for videos
-// Exported for shared usage in endpoints
+// This file is for compatibility only.
+// MongoDB is now the persistent store for videos.
+// No longer used in production code.
 
-const videosDB = [];
 
-export default videosDB;
