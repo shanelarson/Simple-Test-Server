@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { uploadVideoToS3 } from '../functions/s3Upload.js';
-import { insertVideoDocument } from '../functions/videosMongo.js';
+import { insertVideo } from '../utils/mongo.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ router.post('/', upload.single('video'), async (req, res) => {
         contentType: videoFile.mimetype,
         s3Key // internal use for cleanup if needed
       };
-      const inserted = await insertVideoDocument(doc);
+      const inserted = await insertVideo(doc);
       res.status(201).json(inserted);
     } catch (mongoError) {
       // Clean up the just-uploaded S3 object if DB error
@@ -58,6 +58,5 @@ router.post('/', upload.single('video'), async (req, res) => {
     res.status(500).json({ error: 'Unexpected server error.' });
   }
 });
-
 export default router;
 
