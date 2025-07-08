@@ -9,7 +9,12 @@ const router = Router();
 router.get("/", async (req, res) => {
   try {
     const videos = await findAllVideos();
-    res.json(videos);
+    // Ensure likes field is present in all videos (default to 0 for legacy)
+    const videosWithLikes = videos.map(v => ({
+      ...v,
+      likes: typeof v.likes === 'number' ? v.likes : 0
+    }));
+    res.json(videosWithLikes);
   } catch (err) {
     res
       .status(500)
@@ -58,6 +63,7 @@ router.get('/:id', async (req, res) => {
       newViewCount = video.viewCount + 1;
     }
     videoExport.viewCount = newViewCount;
+    videoExport.likes = typeof video.likes === 'number' ? video.likes : 0;
     res.json(videoExport);
   } catch (err) {
     console.error("Error in GET /api/videos/:id:", err);
@@ -65,6 +71,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 export default router;
+
 
 
 

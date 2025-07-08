@@ -79,9 +79,17 @@ router.post('/', upload.single('video'), async (req, res) => {
         filenameHash: hash,
         viewCount: 0, // Initialize viewCount to 0 on upload
         tags: tags,
+        likes: 0, // Initialize likes to 0 on upload
       };
       const inserted = await insertVideo(doc);
       res.status(201).json(inserted);
+
+
+
+
+
+
+
     } catch (mongoError) {
       // Clean up the just-uploaded S3 object if DB error
       try {
@@ -95,6 +103,7 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
 
 

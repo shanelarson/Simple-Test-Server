@@ -47,6 +47,10 @@ app.use('/api/upload', uploadVideoRouter);
 import commentsRouter from './endpoints/comments.js';
 app.use('/api/comments', commentsRouter);
 
+// ----- LIKES ENDPOINT -----
+import likeVideoRouter from './endpoints/likeVideo.js';
+app.use('/api/likes', likeVideoRouter);
+
 // ========== Fallback: handle everything else by returning SPA ==========
 
 
@@ -85,4 +89,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
