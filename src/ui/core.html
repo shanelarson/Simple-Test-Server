@@ -115,26 +115,6 @@
   <script>
     const { useState, useEffect } = React;
 
-    // Utility for extracting query parameters
-    function getQueryParams() {
-      const params = {};
-      if (typeof window !== "undefined") {
-        const search = window.location.search;
-        new URLSearchParams(search).forEach((value, key) => {
-          params[key] = value;
-        });
-      }
-      return params;
-    }
-
-    // Helper to get the path (without querystring) e.g. '/view'
-    function getPathname() {
-      if (typeof window !== "undefined") {
-        return window.location.pathname;
-      }
-      return '';
-    }
-
     function formatDate(dateString) {
       if (!dateString) return '';
       const d = new Date(dateString);
@@ -458,18 +438,15 @@
         )
       );
     }
-
     function App() {
       // Refresh key triggers video list reload
       const [tab, setTab] = useState('upload');
       const [refresh, setRefresh] = useState(0);
 
-      // Routing detection
-      const pathname = getPathname();
-      const query = getQueryParams();
-      // Show detail view if /view and id param present
-      if (pathname === "/view" && query.id) {
-        return React.createElement(VideoDetailView, { id: query.id });
+      // Routing (based on window.VIDEO_ID only)
+      const videoId = typeof window !== "undefined" ? window.VIDEO_ID : null;
+      if (videoId) {
+        return React.createElement(VideoDetailView, { id: videoId });
       }
 
       return React.createElement(
@@ -522,7 +499,6 @@
   </script>
 </body>
 </html>
-
 
 
 
