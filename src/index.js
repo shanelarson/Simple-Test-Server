@@ -8,6 +8,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -44,10 +45,13 @@ app.get('/view', (req, res) => {
   // Only allow HEX hashes, up to 64 chars for safety (covers md5/sha256 if needed)
   const validId = id && /^[a-fA-F0-9]{24,64}$/.test(id);
   // Read core.html as string, inject window.VIEW_MODE/VIDEO_ID, send to client
-  import fs from 'fs';
   const filePath = path.join(uiPath, 'core.html');
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) return res.status(500).send('Internal server error');
+
+
+
+
     let inject = '';
     inject += `<script>window.VIEW_MODE="view";window.VIDEO_ID=${validId ? JSON.stringify(id) : 'null'};</script>`;
     // Inject our script after <body> tag
@@ -65,6 +69,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
 
 
