@@ -75,4 +75,21 @@ export default router;
 
 
 
+// ---- VIDEO SEARCH ENDPOINT ----
+import { searchVideos } from "../utils/mongo.js";
+
+// /api/search?query=<search terms>
+router.get("/search", async (req, res) => {
+  const query = typeof req.query.query === "string" ? req.query.query : "";
+  if (!query || !query.trim()) {
+    return res.json([]);
+  }
+  try {
+    const results = await searchVideos(query.trim());
+    res.json(results);
+  } catch (err) {
+    console.error("Error in /api/search:", err);
+    res.status(500).json({ error: "Database error searching videos." });
+  }
+});
 
