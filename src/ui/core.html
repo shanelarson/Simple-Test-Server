@@ -493,7 +493,6 @@
               setFetchError(err.message || "Could not fetch comments.");
             });
         }, [resolvedId, refreshKey]);
-
         function handleSubmit(e) {
           e.preventDefault();
           setSubmitSuccess("");
@@ -517,6 +516,11 @@
               if (res.ok) return await res.json();
               let data = null;
               try { data = await res.json(); } catch {}
+              // Special moderation error:
+              if (data && typeof data.error === "string" && data.error === "Your comment could not be added because it may violate our content guidelines.") {
+                throw new Error(data.error);
+              }
+              // Otherwise generic
               throw new Error((data && data.error) ? data.error : "Could not submit comment.");
             })
             .then(() => {
@@ -966,6 +970,7 @@
   </script>
 </body>
 </html>
+
 
 
 

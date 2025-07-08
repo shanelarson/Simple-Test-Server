@@ -2,8 +2,38 @@
 import express from 'express';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../utils/mongo.js';
+import fetch from 'node-fetch';
 
 const router = express.Router();
+
+/**
+ * Helper to call OpenAI Moderation API on the provided text.
+ * Returns { flagged: boolean } or throws on error.
+ */
+async function moderateCommentWithOpenAI(text) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OpenAI moderation not configured');
+  }
+  const response = await fetch('https://api.openai.com/v1/moderations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ input: text })
+  });
+  if (!response.ok) {
+    // Most common error: 429 - Too Many Requests, or API down
+    const body = await response.text();
+    throw new Error('Moderation API error: ' + (body || response.statusText));
+  }
+  const data = await response.json();
+  if (!data || !Array.isArray(data.results) || !data.results[0]) {
+    throw new Error('Unexpected response from moderation API');
+  }
+  return { flagged: !!data.results[0].flagged };
+}
 
 // --- Add a comment to a video ---
 // POST /api/comments { videoId, content }
@@ -25,9 +55,21 @@ router.post('/', async (req, res) => {
   } else {
     return res.status(400).json({ error: 'Invalid videoId format.' });
   }
+  // --- OpenAI Moderation Check ---
   try {
+    let moderationResult;
+    try {
+      moderationResult = await moderateCommentWithOpenAI(content.trim());
+    } catch (e) {
+      console.error('OpenAI moderation API error:', e);
+      return res.status(500).json({ error: 'Comment could not be checked for safety. Please try again later.' });
+    }
+    if (moderationResult.flagged) {
+      return res.status(400).json({
+        error: 'Your comment could not be added because it may violate our content guidelines.'
+      });
+    }
     const db = await getDb();
-    // Optionally check video existence, but even if video is deleted, allow comment post
     const doc = {
       videoObjectId: videoObjectId || null,
       filenameHash: filenameHash || null,
@@ -78,3 +120,7 @@ router.get('/:videoId', async (req, res) => {
 });
 
 export default router;
+// To use OpenAI moderation your environment must have OPENAI_API_KEY set (see README or deployment docs)
+// If you see "OpenAI moderation not configured", set the variable in your .env or deployment environment.
+
+
