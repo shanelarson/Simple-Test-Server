@@ -47,7 +47,6 @@ router.post('/', upload.single('video'), async (req, res) => {
       const s3Result = await uploadToS3(
         videoFile.buffer,
         videoFile.mimetype,
-        originalName,
         s3ObjectKey
       );
       s3Url = s3Result.url;
@@ -84,6 +83,7 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
 
 

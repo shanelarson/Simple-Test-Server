@@ -1,8 +1,8 @@
-import express from 'express';
+import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../utils/mongo.js';
 
-const router = express.Router();
+const router = Router();
 
 // Util: Determine if the id is a hash (hex string of md5) or a valid Mongo ObjectId
 function isValidHash(id) {
@@ -36,3 +36,4 @@ router.get('/:id', async (req, res) => {
 });
 
 export default router;
+

@@ -44,7 +44,7 @@ app.get('/view', (req, res) => {
   // Only allow HEX hashes, up to 64 chars for safety (covers md5/sha256 if needed)
   const validId = id && /^[a-fA-F0-9]{24,64}$/.test(id);
   // Read core.html as string, inject window.VIEW_MODE/VIDEO_ID, send to client
-  const fs = require('fs');
+  import fs from 'fs';
   const filePath = path.join(uiPath, 'core.html');
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) return res.status(500).send('Internal server error');
@@ -65,6 +65,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
 
 

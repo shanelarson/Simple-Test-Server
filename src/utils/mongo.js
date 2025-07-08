@@ -16,13 +16,20 @@ async function getMongoClient() {
   }
   return client;
 }
-
 export async function getVideosCollection() {
   await getMongoClient();
   if (!db) {
     db = client.db(MONGODB_DBNAME); // If no db name is set, uses the one in MONGODB_URI
   }
   return db.collection('videos');
+}
+
+export async function getDb() {
+  await getMongoClient();
+  if (!db) {
+    db = client.db(MONGODB_DBNAME);
+  }
+  return db;
 }
 
 export async function insertVideo(doc) {
@@ -35,3 +42,4 @@ export async function findAllVideos() {
   const col = await getVideosCollection();
   return col.find({}).sort({ uploaded: -1 }).toArray();
 }
+
