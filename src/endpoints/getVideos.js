@@ -41,28 +41,30 @@ router.get('/:id', async (req, res) => {
   } else {
     query = { _id: new ObjectId(id) };
   }
-
   try {
     const db = await getDb();
-    // Increment viewCount atomically and return updated doc
-    const video = await db.collection('videos').findOneAndUpdate(
-      query,
-      { $inc: { viewCount: 1 } },
-      { returnDocument: 'after' }
-    );
-    if (!video.value) {
+    // Step 1: Find video
+    const video = await db.collection('videos').findOne(query);
+    if (!video) {
       return res.status(404).json({ error: 'Video not found' });
     }
-    // Remove any sensitive/internal fields
-    const { s3Key, ...videoExport } = video.value;
+    // Step 2: Update viewCount (increment by 1)
+    await db.collection('videos').updateOne(query, { $inc: { viewCount: 1 } });
+    // Return original video shape, but incremented viewCount in response
+    const { s3Key, ...videoExport } = video;
+    // Defensive: add 1 to viewCount if it's a number, otherwise default to 1
+    let newViewCount = 1;
+    if (typeof video.viewCount === 'number') {
+      newViewCount = video.viewCount + 1;
+    }
+    videoExport.viewCount = newViewCount;
     res.json(videoExport);
   } catch (err) {
+    console.error("Error in GET /api/videos/:id:", err);
     res.status(500).json({ error: 'Database error fetching video.' });
   }
 });
 export default router;
-
-
 
 
 
