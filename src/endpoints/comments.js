@@ -2,8 +2,10 @@
 import express from 'express';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../utils/mongo.js';
+import { moderateText } from '../utils/moderation.js';
 
 const router = express.Router();
+
 
 // --- Add a comment to a video ---
 // POST /api/comments { videoId, content }
@@ -25,9 +27,27 @@ router.post('/', async (req, res) => {
   } else {
     return res.status(400).json({ error: 'Invalid videoId format.' });
   }
+  // --- OpenAI Moderation Check ---
   try {
+    let moderationResult;
+    try {
+      moderationResult = await moderateText(content.trim());
+    } catch (e) {
+      console.error('OpenAI moderation API error:', e);
+      return res.status(500).json({ error: 'Comment could not be checked for safety. Please try again later.' });
+    }
+    if (moderationResult.flagged) {
+      // Log more details for auditing
+      console.warn('Comment flagged by moderation:', {
+        content: content.trim(),
+        categories: moderationResult.categories,
+        reasons: moderationResult.reasons
+      });
+      return res.status(400).json({
+        error: 'Your comment could not be added because it may violate our content guidelines.'
+      });
+    }
     const db = await getDb();
-    // Optionally check video existence, but even if video is deleted, allow comment post
     const doc = {
       videoObjectId: videoObjectId || null,
       filenameHash: filenameHash || null,
@@ -78,3 +98,7 @@ router.get('/:videoId', async (req, res) => {
 });
 
 export default router;
+// To use OpenAI moderation your environment must have OPENAI_API_KEY set (see README or deployment docs)
+// If you see "OpenAI moderation not configured", set the variable in your .env or deployment environment.
+
+
