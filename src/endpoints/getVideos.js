@@ -24,30 +24,48 @@ function isValidHash(id) {
 
 // Get single video by id (GET /api/videos/:id)
 router.get('/:id', async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   if (!id || !(isValidHash(id) || ObjectId.isValid(id))) {
     return res.status(400).json({ error: 'Invalid video id' });
   }
+
+  // If it's a hash, normalize by extracting only the 32 hex chars (strip any extension)
   let query;
   if (isValidHash(id)) {
+    const match = id.match(/^[a-f0-9]{32}/);
+    if (!match) {
+      return res.status(400).json({ error: 'Invalid video id' });
+    }
+    id = match[0];
     query = { filenameHash: id };
   } else {
     query = { _id: new ObjectId(id) };
   }
   try {
     const db = await getDb();
+    // Step 1: Find video
     const video = await db.collection('videos').findOne(query);
     if (!video) {
       return res.status(404).json({ error: 'Video not found' });
     }
-    // Remove any sensitive/internal fields
+    // Step 2: Update viewCount (increment by 1)
+    await db.collection('videos').updateOne(query, { $inc: { viewCount: 1 } });
+    // Return original video shape, but incremented viewCount in response
     const { s3Key, ...videoExport } = video;
+    // Defensive: add 1 to viewCount if it's a number, otherwise default to 1
+    let newViewCount = 1;
+    if (typeof video.viewCount === 'number') {
+      newViewCount = video.viewCount + 1;
+    }
+    videoExport.viewCount = newViewCount;
     res.json(videoExport);
   } catch (err) {
+    console.error("Error in GET /api/videos/:id:", err);
     res.status(500).json({ error: 'Database error fetching video.' });
   }
 });
-
 export default router;
+
+
 
 

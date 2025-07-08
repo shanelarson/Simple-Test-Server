@@ -67,6 +67,7 @@ router.post('/', upload.single('video'), async (req, res) => {
         s3Key, // internal use for cleanup if needed
         originalFilename: originalName,
         filenameHash: hash,
+        viewCount: 0, // Initialize viewCount to 0 on upload
       };
       const inserted = await insertVideo(doc);
       res.status(201).json(inserted);
@@ -83,6 +84,7 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
 
 
