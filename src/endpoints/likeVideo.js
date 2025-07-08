@@ -27,23 +27,21 @@ router.post('/', async (req, res) => {
 
   try {
     const db = await getDb();
-    // Step 1: Ensure video exists
-    const video = await db.collection('videos').findOne(query);
-    if (!video) {
+    // Step 1: Atomically increment likes
+    const result = await db.collection('videos').updateOne(
+      query,
+      { $inc: { likes: 1 } }
+    );
+    // Step 2: Check if update was successful (matched a doc)
+    if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Video not found.' });
     }
-    // Step 2: Atomically increment likes
-    const result = await db.collection('videos').findOneAndUpdate(
-      query,
-      { $inc: { likes: 1 } },
-      { returnDocument: 'after' }
-    );
-    // Return the updated likes number
-    const updated = result.value;
-    if (!updated) {
+    // Step 3: Fetch the updated document to get the new likes count
+    const updated = await db.collection('videos').findOne(query);
+    if (!updated || typeof updated.likes !== 'number') {
       return res.status(500).json({ error: 'Database error updating likes.' });
     }
-    res.json({ likes: typeof updated.likes === 'number' ? updated.likes : 0 });
+    res.json({ likes: updated.likes });
   } catch (err) {
     console.error('Error in POST /api/likes:', err);
     res.status(500).json({ error: 'Unexpected database error.' });
@@ -51,3 +49,4 @@ router.post('/', async (req, res) => {
 });
 
 export default router;
+
