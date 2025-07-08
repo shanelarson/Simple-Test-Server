@@ -785,6 +785,7 @@
       // Refresh key triggers video list reload
       const [tab, setTab] = useState('upload');
       const [refresh, setRefresh] = useState(0);
+      const [searchState, setSearchState] = useState({}); // For resetting SearchTab UI on reselect
 
       // Routing (based on window.VIDEO_ID only)
       const videoId = typeof window !== "undefined" ? window.VIDEO_ID : null;
@@ -818,6 +819,17 @@
               }
             },
             "View Uploaded Videos"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: tab === "search" ? "tab active" : "tab",
+              onClick: function () {
+                setTab("search");
+                setSearchState({reset:Math.random()}); // force reset on reselect
+              }
+            },
+            "Search"
           )
         ),
         tab === "upload"
@@ -834,16 +846,126 @@
           ? React.createElement(VideoList, {
               refreshTrigger: refresh
             })
+          : null,
+        tab === "search"
+          ? React.createElement(SearchTab, { key: searchState.reset || "search" })
           : null
       );
     }
+
+    // --- SearchTab component ---
+    function SearchTab() {
+      const [q, setQ] = useState("");
+      const [results, setResults] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState("");
+      const [didSearch, setDidSearch] = useState(false);
+
+      function handleCopy(str) {
+        if (!navigator.clipboard) {
+          const textarea = document.createElement("textarea");
+          textarea.value = str;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(textarea);
+          return;
+        }
+        navigator.clipboard.writeText(str);
+      }
+      function getShareUrl(id) {
+        let origin;
+        try {
+          origin = window.location.origin || "http://localhost:5000";
+        } catch {
+          origin = "http://localhost:5000";
+        }
+        return origin + "/view?id=" + encodeURIComponent(id);
+      }
+      function doSearch(e) {
+        if (e) e.preventDefault();
+        const query = (q || "").trim();
+        if (!query) {
+          setError("Please enter a search term.");
+          setResults([]);
+          setDidSearch(false);
+          return;
+        }
+        setLoading(true);
+        setError("");
+        setDidSearch(true);
+        setResults([]);
+        fetch("/api/search?query=" + encodeURIComponent(query))
+          .then(async resp => {
+            if (!resp.ok) {
+              let msg = "Failed to search.";
+              try { const data = await resp.json(); if (data && data.error) msg = data.error; } catch {}
+              throw new Error(msg);
+            }
+            return resp.json();
+          })
+          .then(data => {
+            setResults(Array.isArray(data) ? data : []);
+            setLoading(false);
+          })
+          .catch(err => {
+            setResults([]);
+            setError(err && err.message ? err.message : "An error occurred.");
+            setLoading(false);
+          });
+      }
+      function handleKeyDown(e) {
+        if (e.key === "Enter") doSearch(e);
+      }
+      return React.createElement(
+        "div",
+        { style: { maxWidth: 530, margin: '28px auto 0', width: "100%" } },
+        React.createElement("h2", null, "Search"),
+        React.createElement(
+          "div",
+          { style: { display: "flex", gap: 12, marginBottom: 8 } },
+          React.createElement("input", {
+            type: "text",
+            placeholder: "Search videos...",
+            value: q,
+            onChange: e => { setQ(e.target.value); setError(""); },
+            onKeyDown: handleKeyDown,
+            style: { flex: 1, fontSize: "1.04rem", padding: "7px 10px", borderRadius: 4, border: "1px solid #bbb" },
+            autoFocus: true
+          }),
+          React.createElement("button", {
+            type: "button",
+            onClick: doSearch,
+            style: { background: "#1976D2", color: "#fff", border: "none", fontWeight: 500, fontSize: "1rem", borderRadius: 4, padding: "8px 20px", cursor: "pointer" },
+            disabled: loading
+          }, loading ? "Searching..." : "Search")
+        ),
+        error && React.createElement("div", { style: { color: "crimson", marginBottom: 10 } }, error),
+        loading && !error && React.createElement("div", { style: { marginBottom: 12, marginTop: 6 } }, "Loading..."),
+        (!loading && didSearch && !error && results.length === 0)
+          ? React.createElement("div", { style: { color: "#666", margin: "16px 0 0 2px" } }, "No videos found.")
+          : null,
+        React.createElement(
+          "div",
+          { className: "video-list", style: { marginTop: 10 } },
+          results.map((v, i) =>
+            React.createElement(VideoCard, {
+              key: v._id || v.filenameHash || i,
+              video: v,
+              loading: false,
+              getShareUrl: getShareUrl,
+              handleCopy: handleCopy
+            })
+          )
+        )
+      );
+    }
+
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(React.createElement(App));
   </script>
 </body>
 </html>
-
-
 
 
 

@@ -35,6 +35,8 @@ app.get('/', (req, res) => {
 import getVideosRouter from './endpoints/getVideos.js';
 import uploadVideoRouter from './endpoints/uploadVideo.js';
 
+import searchRouter from './endpoints/search.js';
+
 // Combine both the video list and get-by-id routers into one under /api/videos
 import { Router } from 'express';
 const videosRouter = Router();
@@ -42,9 +44,12 @@ const videosRouter = Router();
 videosRouter.use('/', getVideosRouter);
 app.use('/api/videos', videosRouter);
 app.use('/api/upload', uploadVideoRouter);
+app.use('/api/search', searchRouter);
 
 // ----- COMMENTS ENDPOINTS -----
 import commentsRouter from './endpoints/comments.js';
+
+
 app.use('/api/comments', commentsRouter);
 
 // ----- LIKES ENDPOINT -----
@@ -89,5 +94,6 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
 
