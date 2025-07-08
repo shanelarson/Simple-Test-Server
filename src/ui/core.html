@@ -351,6 +351,140 @@
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState("");
 
+      // CommentSection subcomponent below
+      function CommentSection({ video, videoId }) {
+        // videoId: allow filenameHash (string) or _id (string)
+        const [comments, setComments] = useState([]);
+        const [fetching, setFetching] = useState(false);
+        const [fetchError, setFetchError] = useState("");
+        const [submitting, setSubmitting] = useState(false);
+        const [submitError, setSubmitError] = useState("");
+        const [submitSuccess, setSubmitSuccess] = useState("");
+        const [comment, setComment] = useState("");
+        // To reload after submit
+        const [refreshKey, setRefreshKey] = useState(0);
+
+        // Figure out what the backend expects for videoId param
+        // Use same string type as backend does (filenameHash or _id as string)
+        // (Avoid undefined)
+        const resolvedId = video?.filenameHash || video?._id || videoId;
+        // Accept both types in backend API
+
+        useEffect(() => {
+          if (!resolvedId) return;
+          setFetching(true);
+          setFetchError("");
+          setComments([]);
+          fetch("/api/comments/" + encodeURIComponent(resolvedId))
+            .then(async res => {
+              if (res.ok) return await res.json();
+              let data = null;
+              try { data = await res.json(); } catch {}
+              throw new Error((data && data.error) ? data.error : "Failed to fetch comments.");
+            })
+            .then(arr => {
+              setComments(Array.isArray(arr) ? arr : []);
+              setFetching(false);
+            })
+            .catch(err => {
+              setComments([]);
+              setFetching(false);
+              setFetchError(err.message || "Could not fetch comments.");
+            });
+        }, [resolvedId, refreshKey]);
+
+        function handleSubmit(e) {
+          e.preventDefault();
+          setSubmitSuccess("");
+          setSubmitError("");
+          // Restrict empty and extremely long comments (e.g. 1-1000 chars)
+          if (!comment.trim()) {
+            setSubmitError("Comment cannot be empty.");
+            return;
+          }
+          if (comment.length > 1000) {
+            setSubmitError("Comment is too long (1000 character limit).");
+            return;
+          }
+          setSubmitting(true);
+          fetch("/api/comments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoId: resolvedId, content: comment })
+          })
+            .then(async res => {
+              if (res.ok) return await res.json();
+              let data = null;
+              try { data = await res.json(); } catch {}
+              throw new Error((data && data.error) ? data.error : "Could not submit comment.");
+            })
+            .then(() => {
+              setComment("");
+              setSubmitSuccess("Comment added!");
+              setRefreshKey(r => r + 1); // Re-fetch comments
+            })
+            .catch(err => {
+              setSubmitError(err.message || "Could not submit comment.");
+            })
+            .finally(() => {
+              setSubmitting(false);
+            });
+        }
+
+        // --- Comments List + Form JSX ---
+        return React.createElement("div", { style: { marginTop: 32 } },
+          React.createElement("h3", { style: { fontWeight: 500, fontSize: "1.11em", marginBottom: 10 } }, "Comments"),
+          fetching
+            ? React.createElement("div", null, "Loading comments...")
+            : fetchError
+              ? React.createElement("div", { style: { color: "crimson", marginBottom: 8 } }, fetchError)
+              : comments.length === 0
+                ? React.createElement("div", { style: { color: "#666", marginBottom: 8 } }, "No comments yet.")
+                : React.createElement("div", {
+                    style: { marginBottom: 12, marginTop: 2, display: "flex", flexDirection: "column", gap: 8 }
+                  },
+                  comments.map((c, i) =>
+                    React.createElement("div", {
+                      key: (c._id || i),
+                      style: {
+                        border: "1px solid #ececec",
+                        borderRadius: 4,
+                        padding: "7px 10px",
+                        background: "#f9fafb"
+                      }
+                    },
+                    React.createElement("div", {
+                      style: { fontSize: "1em", whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 3 }
+                    }, c.content),
+                    React.createElement("div", {
+                      style: { color: "#888", fontSize: "0.94em" }
+                    }, formatDate(c.created))
+                    )
+                  )
+                ),
+          React.createElement("form", { onSubmit: handleSubmit, style: { marginTop: 10 } },
+            React.createElement("textarea", {
+              value: comment,
+              onChange: e => { setComment(e.target.value); setSubmitSuccess(""); setSubmitError(""); },
+              placeholder: "Add a comment...",
+              rows: 3,
+              style: { width: "100%", resize: "vertical", fontSize: "1em", marginBottom: 7, border: "1px solid #ccc", borderRadius: 4, padding: 6, maxHeight: 180 },
+              maxLength: 1000,
+              disabled: submitting
+            }),
+            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+              React.createElement("button", {
+                type: "submit",
+                disabled: submitting || comment.length === 0,
+                style: { background: "#1976d2", color: "#fff", fontWeight: 500, borderRadius: 4, border: "none", padding: "7px 19px", cursor: submitting ? "not-allowed" : "pointer" }
+              }, submitting ? "Adding..." : "Add Comment"),
+              submitError ? React.createElement("span", { style: { color: "crimson" } }, submitError) : null,
+              submitSuccess ? React.createElement("span", { style: { color: "green" } }, submitSuccess) : null
+            )
+          )
+        );
+      }
+
       useEffect(() => {
         if (!id) {
           setError("No video specified.");
@@ -459,11 +593,11 @@
               onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || id))
             }, "Copy")
           )
-
-
-
-
-
+          ,
+          React.createElement(CommentSection, {
+            video: video,
+            videoId: id
+          })
 
 
         ),
@@ -474,6 +608,8 @@
           }, "Back to Home")
         )
       );
+
+
     }
     function App() {
       // Refresh key triggers video list reload
@@ -536,6 +672,7 @@
   </script>
 </body>
 </html>
+
 
 
 

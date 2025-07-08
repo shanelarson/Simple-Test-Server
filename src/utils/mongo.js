@@ -46,7 +46,6 @@ export async function findAllVideos() {
   const rawVideos = await col.find({}).sort({ uploaded: -1 }).toArray();
   return rawVideos.map(v => ({ ...v, viewCount: (typeof v.viewCount === 'number') ? v.viewCount : 0 }));
 }
-
 // Utility: Find a single video by filenameHash (for debugging/demo)
 export async function findVideoByFilenameHash(hash) {
   const col = await getVideosCollection();
@@ -54,4 +53,58 @@ export async function findVideoByFilenameHash(hash) {
 }
 
 
+
+// --------- COMMENTS COLLECTION UTILS ---------
+let commentsCol = null;
+export async function getCommentsCollection() {
+  await getMongoClient();
+  if (!db) {
+    db = client.db(MONGODB_DBNAME);
+  }
+  if (!commentsCol) {
+    commentsCol = db.collection('comments');
+    // Consider indexes for videoId, if doing more advanced queries later
+  }
+  return commentsCol;
+}
+
+// Insert comment: Accepts { videoId, filenameHash, content, created }
+// Uses both videoId (ObjectId) and filenameHash (if provided)
+export async function insertComment({ videoId, filenameHash, content }) {
+  const col = await getCommentsCollection();
+  const doc = {
+    content: typeof content === "string" ? content.trim() : "",
+    created: new Date(),
+  };
+  // Accept either or both identifiers
+  if (videoId) doc.videoId = videoId;
+  if (filenameHash) doc.filenameHash = filenameHash;
+  const result = await col.insertOne(doc);
+  return { ...doc, _id: result.insertedId };
+}
+
+// Find all comments for a video, by videoId or filenameHash
+// videoIdArg: ObjectId|string, hashArg: string
+export async function findCommentsForVideo({ videoId, filenameHash }) {
+  const col = await getCommentsCollection();
+  let query = {};
+  if (videoId && filenameHash) {
+    query = { $or: [{ videoId: videoId }, { filenameHash: filenameHash }] };
+  } else if (videoId) {
+    query = { videoId: videoId };
+  } else if (filenameHash) {
+    query = { filenameHash: filenameHash };
+  } else {
+    // No identifier; empty results
+    return [];
+  }
+  const comments = await col.find(query).sort({ created: 1 }).toArray();
+  return comments;
+}
+
+// For test/debug only
+export async function clearCommentsCollection() {
+  const col = await getCommentsCollection();
+  await col.deleteMany({});
+}
 
