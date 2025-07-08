@@ -31,15 +31,23 @@ export async function getDb() {
   }
   return db;
 }
-
 export async function insertVideo(doc) {
   const col = await getVideosCollection();
   const result = await col.insertOne(doc);
-  return result;
+  // Return the inserted document with its _id
+  return { ...doc, _id: result.insertedId };
 }
 
 export async function findAllVideos() {
   const col = await getVideosCollection();
   return col.find({}).sort({ uploaded: -1 }).toArray();
 }
+
+// Utility: Find a single video by filenameHash (for debugging/demo)
+export async function findVideoByFilenameHash(hash) {
+  const col = await getVideosCollection();
+  return await col.findOne({ filenameHash: hash });
+}
+
+
 
