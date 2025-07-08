@@ -115,6 +115,26 @@
   <script>
     const { useState, useEffect } = React;
 
+    // Utility for extracting query parameters
+    function getQueryParams() {
+      const params = {};
+      if (typeof window !== "undefined") {
+        const search = window.location.search;
+        new URLSearchParams(search).forEach((value, key) => {
+          params[key] = value;
+        });
+      }
+      return params;
+    }
+
+    // Helper to get the path (without querystring) e.g. '/view'
+    function getPathname() {
+      if (typeof window !== "undefined") {
+        return window.location.pathname;
+      }
+      return '';
+    }
+
     function formatDate(dateString) {
       if (!dateString) return '';
       const d = new Date(dateString);
@@ -215,7 +235,6 @@
           : null
       );
     }
-
     function VideoList({ refreshTrigger }) {
       const [videos, setVideos] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -227,6 +246,32 @@
           .then(data => setVideos(Array.isArray(data) ? data : []))
           .finally(() => setLoading(false));
       }, [refreshTrigger]);
+      function handleCopy(str) {
+        if (!navigator.clipboard) {
+          // fallback for very old browsers
+          const textarea = document.createElement("textarea");
+          textarea.value = str;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(textarea);
+          return;
+        }
+        navigator.clipboard.writeText(str);
+      }
+
+      // Use the same server location as the page for share URLs
+      function getShareUrl(id) {
+        // Default to localhost:5000 if we can't determine otherwise
+        let origin;
+        try {
+          origin = window.location.origin || "http://localhost:5000";
+        } catch {
+          origin = "http://localhost:5000";
+        }
+        return origin + "/view?id=" + encodeURIComponent(id);
+      }
+
       return React.createElement(
         "div",
         { className: "video-list" },
@@ -242,7 +287,7 @@
             "div",
             {
               className: "video-card",
-              key: v._id || i
+              key: v._id || v.filenameHash || i
             },
             React.createElement(
               "div",
@@ -251,7 +296,7 @@
               React.createElement(
                 "div",
                 { className: "video-date" },
-                formatDate(v.date)
+                formatDate(v.uploaded)
               ),
               v.description
                 ? React.createElement("div", null, v.description)
@@ -274,8 +319,120 @@
                     }
                   },
                   "No video URL"
-                )
+                ),
+            // --- Share URL Box ---
+            React.createElement(
+              "div",
+              { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement('input', {
+                style: { flex: 1 },
+                type: "text",
+                value: getShareUrl(v.filenameHash || v._id || ""),
+                readOnly: true,
+                onFocus: e => { e.target.select(); }
+              }),
+              React.createElement('button', {
+                type: "button",
+                title: "Copy link",
+                onClick: () => handleCopy(getShareUrl(v.filenameHash || v._id || ""))
+              }, "Copy")
+            )
           )
+        )
+      );
+    }
+
+    // ----- Video Detail View Screen -----
+    function VideoDetailView({ id }) {
+      const [video, setVideo] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState("");
+
+      useEffect(() => {
+        if (!id) {
+          setError("No video specified.");
+          setLoading(false);
+          return;
+        }
+        setLoading(true);
+        setError("");
+        setVideo(null);
+        // Try both _id and hash
+        fetch('/api/videos/' + encodeURIComponent(id))
+          .then(res => {
+            if (res.ok) return res.json();
+            if (res.status === 404) throw new Error("Video not found.");
+            throw new Error("Failed to load video.");
+          })
+          .then(data => {
+            setVideo(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            setError(err.message || "Failed to load video.");
+            setLoading(false);
+          });
+      }, [id]);
+
+      function handleCopy(str) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(str);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = str;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(textarea);
+        }
+      }
+      function getShareUrl(id) {
+        let origin;
+        try {
+          origin = window.location.origin || "http://localhost:5000";
+        } catch {
+          origin = "http://localhost:5000";
+        }
+        return origin + "/view?id=" + encodeURIComponent(id);
+      }
+      return React.createElement(
+        "div",
+        { style: { maxWidth: 600, margin: '48px auto 0', padding: 20, background: "#fafbfc", borderRadius: 7, border: '1px solid #eee' } },
+        React.createElement("h2", null, "Video Detail"),
+        loading ? React.createElement("div", null, "Loading...")
+        : error ? React.createElement("div", { style: { color: "crimson" } }, error)
+        : !video ? null :
+        React.createElement(React.Fragment, null,
+          React.createElement("div", { style: { fontWeight: 'bold', fontSize:"1.3rem"} }, video.title),
+          React.createElement("div", { style: { color: '#666', fontSize: "0.95em", marginBottom: 8 }}, formatDate(video.uploaded)),
+          video.description ? React.createElement("div", { style:{marginBottom: 8}}, video.description) : null,
+          video.url ? React.createElement("video", {
+            src: video.url,
+            controls: true,
+            style: { width: '100%', background: "#eee", marginBottom: '12px' }
+          }) : React.createElement("div", null, "No video URL available."),
+          React.createElement(
+            "div",
+            { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement('input', {
+              style: { flex: 1 },
+              type: "text",
+              value: getShareUrl(video.filenameHash || video._id || id),
+              readOnly: true,
+              onFocus: e => { e.target.select(); }
+            }),
+            React.createElement('button', {
+              type: "button",
+              title: "Copy link",
+              onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || id))
+            }, "Copy")
+          )
+        ),
+        React.createElement('div', { style: { marginTop: 32, textAlign: 'center' } },
+          React.createElement('button', {
+            type: "button",
+            onClick: () => { window.location.href = "/"; }
+          }, "Back to Home")
         )
       );
     }
@@ -284,6 +441,15 @@
       // Refresh key triggers video list reload
       const [tab, setTab] = useState('upload');
       const [refresh, setRefresh] = useState(0);
+
+      // Routing detection
+      const pathname = getPathname();
+      const query = getQueryParams();
+      // Show detail view if /view and id param present
+      if (pathname === "/view" && query.id) {
+        return React.createElement(VideoDetailView, { id: query.id });
+      }
+
       return React.createElement(
         "div",
         null,
@@ -334,6 +500,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 

@@ -38,6 +38,25 @@ app.use('/api/videos', getVideosRouter);
 app.use('/api/upload', uploadVideoRouter);
 
 // ========== Fallback: handle everything else by returning SPA ==========
+// Serve /view path with video ID to core.html, injecting params via a script tag
+app.get('/view', (req, res) => {
+  const id = typeof req.query.id === 'string' ? req.query.id : undefined;
+  // Only allow HEX hashes, up to 64 chars for safety (covers md5/sha256 if needed)
+  const validId = id && /^[a-fA-F0-9]{24,64}$/.test(id);
+  // Read core.html as string, inject window.VIEW_MODE/VIDEO_ID, send to client
+  const fs = require('fs');
+  const filePath = path.join(uiPath, 'core.html');
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) return res.status(500).send('Internal server error');
+    let inject = '';
+    inject += `<script>window.VIEW_MODE="view";window.VIDEO_ID=${validId ? JSON.stringify(id) : 'null'};</script>`;
+    // Inject our script after <body> tag
+    html = html.replace(/<body[^>]*>/, bodyMatch => `${bodyMatch}\n${inject}`);
+    res.send(html);
+  });
+});
+
+// Fallback: handle everything else by returning SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(uiPath, 'core.html'));
 });
@@ -46,6 +65,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
 
 
