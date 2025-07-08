@@ -16,6 +16,16 @@ router.post('/', upload.single('video'), async (req, res) => {
   try {
     let { title, description } = req.body;
     const videoFile = req.file;
+    // Tags parsing
+    let tagsInput = req.body.tags;
+    let tags = [];
+    if (typeof tagsInput === "string") {
+      tags = tagsInput
+        .split(",")
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
+    }
+
     if (!title || !videoFile) {
       return res.status(400).json({ error: 'Missing required fields or file.' });
     }
@@ -68,6 +78,7 @@ router.post('/', upload.single('video'), async (req, res) => {
         originalFilename: originalName,
         filenameHash: hash,
         viewCount: 0, // Initialize viewCount to 0 on upload
+        tags: tags,
       };
       const inserted = await insertVideo(doc);
       res.status(201).json(inserted);
@@ -84,6 +95,7 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
+
 
 
 
