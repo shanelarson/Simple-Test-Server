@@ -43,6 +43,10 @@ videosRouter.use('/', getVideosRouter);
 app.use('/api/videos', videosRouter);
 app.use('/api/upload', uploadVideoRouter);
 
+// ----- COMMENTS ENDPOINTS -----
+import commentsRouter from './endpoints/comments.js';
+app.use('/api/comments', commentsRouter);
+
 // ========== Fallback: handle everything else by returning SPA ==========
 
 
@@ -81,13 +85,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
-
-
-
-
-
-
-
-
-
 
