@@ -286,7 +286,6 @@
         }
         return origin + "/view?id=" + encodeURIComponent(id);
       }
-
       return React.createElement(
         "div",
         { className: "video-list" },
@@ -297,96 +296,145 @@
         !loading && !videos.length
           ? React.createElement("div", null, "No videos uploaded yet.")
           : null,
-        videos.map((v, i) =>
+        videos.map((v, i) => React.createElement(
+          VideoCard,
+          {
+            key: v._id || v.filenameHash || i,
+            video: v,
+            loading: loading,
+            getShareUrl: getShareUrl,
+            handleCopy: handleCopy
+          }
+        ))
+      );
+    }
+
+    // The per-video card component (outside to avoid hooks-in-a-map misuses)
+    function VideoCard({ video, loading, getShareUrl, handleCopy }) {
+      const [liked, setLiked] = useState(false);
+      const [likeCount, setLikeCount] = useState(
+        typeof video.likes === "number" ? video.likes : 0
+      );
+      const [likeError, setLikeError] = useState("");
+      return React.createElement(
+        "div",
+        { className: "video-card" },
+        React.createElement(
+          "div",
+          { className: "video-info" },
+          React.createElement("div", { className: "video-title" }, video.title),
           React.createElement(
             "div",
-            {
-              className: "video-card",
-              key: v._id || v.filenameHash || i
-            },
-            React.createElement(
-              "div",
-              { className: "video-info" },
-              React.createElement("div", { className: "video-title" }, v.title),
-              React.createElement(
-                "div",
-                { className: "video-date" },
-                formatDate(v.uploaded)
-              ),
-              v.description
-                ? React.createElement("div", null, v.description)
-                : null
-            ),
-            v.url
-              ? React.createElement("video", {
-                  src: v.url,
-                  controls: true,
-                  preload: "metadata"
-                })
-              : React.createElement(
-                  "div",
-                  {
-                    style: {
-                      background: "#eee",
-                      height: 160,
-                      width: "100%",
-                      textAlign: "center"
-                    }
-                  },
-                  "No video URL"
-                ),
-            // --- View Count ---
-            React.createElement(
+            { className: "video-date" },
+            formatDate(video.uploaded)
+          ),
+          video.description
+            ? React.createElement("div", null, video.description)
+            : null
+        ),
+        video.url
+          ? React.createElement("video", {
+              src: video.url,
+              controls: true,
+              preload: "metadata"
+            })
+          : React.createElement(
               "div",
               {
                 style: {
-                  margin: "8px 0 2px 0",
-                  fontWeight: 500,
-                  color: "#444",
-                  fontSize: "1.04em"
+                  background: "#eee",
+                  height: 160,
+                  width: "100%",
+                  textAlign: "center"
                 }
               },
-              "Views: ",
-              loading ? "Loading..." : (typeof v.viewCount === "number" && v.viewCount >= 0 ? v.viewCount : "0")
+              "No video URL"
             ),
-            // --- Share URL Box ---
-            React.createElement(
-              "div",
-              { style: { marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 } },
-              React.createElement('input', {
-                style: { flex: 1 },
-                type: "text",
-                value: getShareUrl(v.filenameHash || v._id || ""),
-                readOnly: true,
-                onFocus: e => { e.target.select(); }
-              }),
-              React.createElement('button', {
-                type: "button",
-                title: "Copy link",
-                onClick: () => handleCopy(getShareUrl(v.filenameHash || v._id || ""))
-              }, "Copy")
-            ),
-            // --- Tags Badges ---
-            Array.isArray(v.tags) && v.tags.length > 0
-              ? React.createElement(
-                  'div',
-                  { className: "tags-container" },
-                  v.tags.map((tag, idx) =>
-                    typeof tag === 'string' && tag.trim()
-                      ? React.createElement(
-                          'span',
-                          { className: "tag-badge", key: tag + idx },
-                          tag.trim()
-                        )
-                      : null
-                  )
-                )
-              : null
-          )
+        // --- View Count ---
+        React.createElement(
+          "div",
+          {
+            style: {
+              margin: "8px 0 2px 0",
+              fontWeight: 500,
+              color: "#444",
+              fontSize: "1.04em"
+            }
+          },
+          "Views: ",
+          loading ? "Loading..." : (typeof video.viewCount === "number" && video.viewCount >= 0 ? video.viewCount : "0")
+        ),
+        // --- Share URL Box ---
+        React.createElement(
+          "div",
+          { style: { marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('input', {
+            style: { flex: 1 },
+            type: "text",
+            value: getShareUrl(video.filenameHash || video._id || ""),
+            readOnly: true,
+            onFocus: e => { e.target.select(); }
+          }),
+          React.createElement('button', {
+            type: "button",
+            title: "Copy link",
+            onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || ""))
+          }, "Copy")
+        ),
+        // --- Tags Badges ---
+        Array.isArray(video.tags) && video.tags.length > 0
+          ? React.createElement(
+              'div',
+              { className: "tags-container" },
+              video.tags.map((tag, idx) =>
+                typeof tag === 'string' && tag.trim()
+                  ? React.createElement(
+                      'span',
+                      { className: "tag-badge", key: tag + idx },
+                      tag.trim()
+                    )
+                  : null
+              )
+            )
+          : null,
+        // --- Like Button & Likes Count ---
+        React.createElement(
+          "div",
+          { style: { marginTop: 10, display: "flex", alignItems: "center", gap: 12 } },
+          React.createElement(
+            "button",
+            {
+              type: "button",
+              disabled: liked,
+              style: { background: "#e91e63", color: "#fff", fontWeight: 550, borderRadius: 5, border: "none", padding: "7px 14px", cursor: liked ? "not-allowed" : "pointer" },
+              onClick: () => {
+                setLikeError("");
+                fetch("/api/likes", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    videoId: video.filenameHash || video._id
+                  })
+                }).then(async res => {
+                  if (!res.ok) {
+                    let msg = "Failed to like video.";
+                    try { const data = await res.json(); if (data && data.error) msg = data.error; } catch {}
+                    throw new Error(msg);
+                  }
+                  return await res.json();
+                }).then(response => {
+                  setLiked(true);
+                  setLikeCount(prev => (typeof response.likes === "number" ? response.likes : (prev + 1)));
+                }).catch(err => {
+                  setLikeError(err.message || "Failed to like.");
+                });
+              }
+            },
+            liked ? "Liked!" : `Like (${likeCount})`
+          ),
+          likeError ? React.createElement("span", { style: { color: "crimson", fontSize:"0.98em" } }, likeError) : null
         )
       );
-
-
     }
     // ----- Video Detail View Screen -----
     function VideoDetailView({ id }) {
@@ -662,6 +710,12 @@
                 )
               )
             : null,
+          // --- Like Button & Likes Count ---
+          React.createElement(LikeButton, {
+            videoId: video.filenameHash || video._id || id,
+            initialLikes: typeof video.likes === "number" ? video.likes : 0
+          }),
+
           React.createElement(CommentSection, {
             video: video,
             videoId: id
@@ -682,8 +736,50 @@
           }, "Back to Home")
         )
       );
+    }
 
+    // LikeButton component for VideoDetailView (always rendered - never in condition/closure)
+    function LikeButton({ videoId, initialLikes }) {
+      const [liked, setLiked] = useState(false);
+      const [likeCount, setLikeCount] = useState(initialLikes);
+      const [likeError, setLikeError] = useState("");
 
+      return React.createElement(
+        "div",
+        { style: { marginTop: 11, marginBottom: 6, display: "flex", alignItems: "center", gap: 12 } },
+        React.createElement(
+          "button",
+          {
+            type: "button",
+            disabled: liked,
+            style: { background: "#e91e63", color: "#fff", fontWeight: 550, borderRadius: 5, border: "none", padding: "7px 16px", cursor: liked ? "not-allowed" : "pointer" },
+            onClick: () => {
+              setLikeError("");
+              fetch("/api/likes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  videoId: videoId
+                })
+              }).then(async res => {
+                if (!res.ok) {
+                  let msg = "Failed to like video.";
+                  try { const data = await res.json(); if (data && data.error) msg = data.error; } catch {}
+                  throw new Error(msg);
+                }
+                return await res.json();
+              }).then(response => {
+                setLiked(true);
+                setLikeCount(prev => (typeof response.likes === "number" ? response.likes : (prev + 1)));
+              }).catch(err => {
+                setLikeError(err.message || "Failed to like.");
+              });
+            }
+          },
+          liked ? "Liked!" : `Like (${likeCount})`
+        ),
+        likeError ? React.createElement("span", { style: { color: "crimson", fontSize: "0.98em" } }, likeError) : null
+      );
     }
     function App() {
       // Refresh key triggers video list reload
@@ -746,6 +842,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
