@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Simple Video Sharing Platform</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    #root {
+      max-width: 800px;
+      margin: 32px auto;
+      background: #fff;
+      padding: 24px 32px 40px 32px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-top: 0;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .tab {
+      padding: 12px 30px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      outline: none;
+      font-size: 1rem;
+      margin-right: 16px;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      border-bottom: 2px solid #1976D2;
+      color: #1976D2;
+      font-weight: bold;
+    }
+    .upload-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 450px;
+      margin: 0 auto;
+    }
+    .upload-form input[type="text"],
+    .upload-form textarea {
+      font-size: 1rem;
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+    }
+    .upload-form button {
+      padding: 10px 0;
+      background: #1976D2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .upload-form button:disabled {
+      background: #b6b6b6;
+      cursor: not-allowed;
+    }
+    .video-list {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .video-card {
+      background: #fafbfc;
+      border: 1px solid #ececec;
+      border-radius: 5px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-card video {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #eee;
+      margin-bottom: 10px;
+    }
+    .video-info {
+      margin-top: 2px;
+      margin-bottom: 8px;
+    }
+    .video-title {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+    }
+    .video-date {
+      color: #666;
+      font-size: 0.95em;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script>
+    const { useState, useEffect } = React;
+
+    function formatDate(dateString) {
+      if (!dateString) return '';
+      const d = new Date(dateString);
+      return d.toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    }
+
+    function UploadVideo({ onUpload }) {
+      const [title, setTitle] = useState('');
+      const [desc, setDesc] = useState('');
+      const [file, setFile] = useState(null);
+      const [uploading, setUploading] = useState(false);
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+
+      function handleSubmit(e) {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        if (!title.trim() || !file) {
+          setError('Title and video file are required.');
+          return;
+        }
+        if (file.size > 104857600) { // 100MB
+          setError('File size cannot exceed 100MB.');
+          return;
+        }
+        setUploading(true);
+        const fd = new FormData();
+        fd.append('title', title);
+        fd.append('description', desc);
+        fd.append('video', file);
+        fetch('/api/upload', {
+          method: 'POST',
+          body: fd,
+        })
+          .then(async resp => {
+            if (!resp.ok) throw new Error('Upload failed');
+            return resp.json();
+          })
+          .then(data => {
+            setSuccess('Upload successful!');
+            setTitle('');
+            setDesc('');
+            setFile(null);
+            if (onUpload) onUpload();
+          })
+          .catch(() => setError('Failed to upload video.'))
+          .finally(() => setUploading(false));
+      }
+      return React.createElement(
+        "form",
+        {
+          className: "upload-form",
+          onSubmit: handleSubmit
+        },
+        React.createElement("h2", null, "Upload Video"),
+        React.createElement("input", {
+          type: "text",
+          placeholder: "Title",
+          maxLength: 100,
+          value: title,
+          onChange: e => setTitle(e.target.value),
+          required: true
+        }),
+        React.createElement("textarea", {
+          placeholder: "Description (optional)",
+          value: desc,
+          rows: 3,
+          onChange: e => setDesc(e.target.value)
+        }),
+        React.createElement("input", {
+          type: "file",
+          accept: "video/*",
+          onChange: e => setFile(e.target.files[0]),
+          required: true
+        }),
+        React.createElement(
+          "button",
+          { type: "submit", disabled: uploading },
+          uploading ? "Uploading..." : "Upload"
+        ),
+        error
+          ? React.createElement(
+              "div",
+              { style: { color: "crimson" } },
+              error
+            )
+          : null,
+        success
+          ? React.createElement(
+              "div",
+              { style: { color: "green" } },
+              success
+            )
+          : null
+      );
+    }
+    function VideoList({ refreshTrigger }) {
+      const [videos, setVideos] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        setLoading(true);
+        fetch('/api/videos')
+          .then(res => res.ok ? res.json() : [])
+          .then(data => setVideos(Array.isArray(data) ? data : []))
+          .finally(() => setLoading(false));
+      }, [refreshTrigger]);
+      function handleCopy(str) {
+        if (!navigator.clipboard) {
+          // fallback for very old browsers
+          const textarea = document.createElement("textarea");
+          textarea.value = str;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(textarea);
+          return;
+        }
+        navigator.clipboard.writeText(str);
+      }
+
+      // Use the same server location as the page for share URLs
+      function getShareUrl(id) {
+        // Default to localhost:5000 if we can't determine otherwise
+        let origin;
+        try {
+          origin = window.location.origin || "http://localhost:5000";
+        } catch {
+          origin = "http://localhost:5000";
+        }
+        return origin + "/view?id=" + encodeURIComponent(id);
+      }
+
+      return React.createElement(
+        "div",
+        { className: "video-list" },
+        React.createElement("h2", null, "Uploaded Videos"),
+        loading
+          ? React.createElement("div", null, "Loading...")
+          : null,
+        !loading && !videos.length
+          ? React.createElement("div", null, "No videos uploaded yet.")
+          : null,
+        videos.map((v, i) =>
+          React.createElement(
+            "div",
+            {
+              className: "video-card",
+              key: v._id || v.filenameHash || i
+            },
+            React.createElement(
+              "div",
+              { className: "video-info" },
+              React.createElement("div", { className: "video-title" }, v.title),
+              React.createElement(
+                "div",
+                { className: "video-date" },
+                formatDate(v.uploaded)
+              ),
+              v.description
+                ? React.createElement("div", null, v.description)
+                : null
+            ),
+            v.url
+              ? React.createElement("video", {
+                  src: v.url,
+                  controls: true,
+                  preload: "metadata"
+                })
+              : React.createElement(
+                  "div",
+                  {
+                    style: {
+                      background: "#eee",
+                      height: 160,
+                      width: "100%",
+                      textAlign: "center"
+                    }
+                  },
+                  "No video URL"
+                ),
+            // --- Share URL Box ---
+            React.createElement(
+              "div",
+              { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement('input', {
+                style: { flex: 1 },
+                type: "text",
+                value: getShareUrl(v.filenameHash || v._id || ""),
+                readOnly: true,
+                onFocus: e => { e.target.select(); }
+              }),
+              React.createElement('button', {
+                type: "button",
+                title: "Copy link",
+                onClick: () => handleCopy(getShareUrl(v.filenameHash || v._id || ""))
+              }, "Copy")
+            )
+          )
+        )
+      );
+    }
+    // ----- Video Detail View Screen -----
+    function VideoDetailView({ id }) {
+      // Util: isValidMongoObjectId = exactly 24 hex chars; isValidMd5Hash = exactly 32 hex chars (all hex)
+      function isValidId(testId) {
+        if (!testId || typeof testId !== "string") return false;
+        const idStr = testId.trim();
+        // MongoDB ObjectId: 24 hex chars, MD5: 32 hex chars
+        const isMd5 = /^[a-fA-F0-9]{32}$/.test(idStr);
+        const isMongoId = /^[a-fA-F0-9]{24}$/.test(idStr);
+        return isMd5 || isMongoId;
+      }
+
+      const [video, setVideo] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState("");
+
+      useEffect(() => {
+        if (!id) {
+          setError("No video specified.");
+          setLoading(false);
+          return;
+        }
+        if (!isValidId(id)) {
+          setError("Invalid or unsupported video ID format.");
+          setLoading(false);
+          return;
+        }
+        setLoading(true);
+        setError("");
+        setVideo(null);
+        // Try both _id and hash
+        fetch('/api/videos/' + encodeURIComponent(id))
+          .then(async res => {
+            try {
+              if (res.ok) return await res.json();
+              if (res.status === 404) throw new Error("Video not found.");
+              // Try to parse error JSON, fallback
+              let data = null;
+              try { data = await res.json(); } catch (e) {}
+              throw new Error((data && data.error) ? data.error : "Failed to load video.");
+            } catch (e) {
+              // In case we get non-JSON (e.g. fallback HTML), show friendly error
+              throw new Error("Video not found or invalid video ID.");
+            }
+          })
+          .then(data => {
+            setVideo(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            setError(err.message || "Failed to load video.");
+            setLoading(false);
+          });
+      }, [id]);
+
+      function handleCopy(str) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(str);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = str;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try { document.execCommand('copy'); } catch {}
+          document.body.removeChild(textarea);
+        }
+      }
+      function getShareUrl(id) {
+        let origin;
+        try {
+          origin = window.location.origin || "http://localhost:5000";
+        } catch {
+          origin = "http://localhost:5000";
+        }
+        return origin + "/view?id=" + encodeURIComponent(id);
+      }
+      return React.createElement(
+        "div",
+        { style: { maxWidth: 600, margin: '48px auto 0', padding: 20, background: "#fafbfc", borderRadius: 7, border: '1px solid #eee' } },
+        React.createElement("h2", null, "Video Detail"),
+        loading ? React.createElement("div", null, "Loading...")
+        : error ? React.createElement("div", { style: { color: "crimson" } }, error)
+        : !video ? null :
+        React.createElement(React.Fragment, null,
+          React.createElement("div", { style: { fontWeight: 'bold', fontSize:"1.3rem"} }, video.title),
+          React.createElement("div", { style: { color: '#666', fontSize: "0.95em", marginBottom: 8 }}, formatDate(video.uploaded)),
+          video.description ? React.createElement("div", { style:{marginBottom: 8}}, video.description) : null,
+          video.url ? React.createElement("video", {
+            src: video.url,
+            controls: true,
+            style: { width: '100%', background: "#eee", marginBottom: '12px' }
+          }) : React.createElement("div", null, "No video URL available."),
+          React.createElement(
+            "div",
+            { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement('input', {
+              style: { flex: 1 },
+              type: "text",
+              value: getShareUrl(video.filenameHash || video._id || id),
+              readOnly: true,
+              onFocus: e => { e.target.select(); }
+            }),
+            React.createElement('button', {
+              type: "button",
+              title: "Copy link",
+              onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || id))
+            }, "Copy")
+          )
+        ),
+        React.createElement('div', { style: { marginTop: 32, textAlign: 'center' } },
+          React.createElement('button', {
+            type: "button",
+            onClick: () => { window.location.href = "/"; }
+          }, "Back to Home")
+        )
+      );
+    }
+    function App() {
+      // Refresh key triggers video list reload
+      const [tab, setTab] = useState('upload');
+      const [refresh, setRefresh] = useState(0);
+
+      // Routing (based on window.VIDEO_ID only)
+      const videoId = typeof window !== "undefined" ? window.VIDEO_ID : null;
+      if (videoId) {
+        return React.createElement(VideoDetailView, { id: videoId });
+      }
+
+      return React.createElement(
+        "div",
+        null,
+        React.createElement("h1", null, "Simple Video Sharing Platform"),
+        React.createElement(
+          "div",
+          { className: "tabs" },
+          React.createElement(
+            "button",
+            {
+              className: tab === "upload" ? "tab active" : "tab",
+              onClick: function () {
+                setTab("upload");
+              }
+            },
+            "Upload"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: tab === "list" ? "tab active" : "tab",
+              onClick: function () {
+                setTab("list");
+              }
+            },
+            "View Uploaded Videos"
+          )
+        ),
+        tab === "upload"
+          ? React.createElement(UploadVideo, {
+              onUpload: function () {
+                setRefresh(function (x) {
+                  return x + 1;
+                });
+                setTab("list");
+              }
+            })
+          : null,
+        tab === "list"
+          ? React.createElement(VideoList, {
+              refreshTrigger: refresh
+            })
+          : null
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
+
+
+
+
+
+
