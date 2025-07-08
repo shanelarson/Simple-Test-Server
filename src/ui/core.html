@@ -341,9 +341,18 @@
         )
       );
     }
-
     // ----- Video Detail View Screen -----
     function VideoDetailView({ id }) {
+      // Util: isValidMongoObjectId = exactly 24 hex chars; isValidMd5Hash = exactly 32 hex chars (all hex)
+      function isValidId(testId) {
+        if (!testId || typeof testId !== "string") return false;
+        const idStr = testId.trim();
+        // MongoDB ObjectId: 24 hex chars, MD5: 32 hex chars
+        const isMd5 = /^[a-fA-F0-9]{32}$/.test(idStr);
+        const isMongoId = /^[a-fA-F0-9]{24}$/.test(idStr);
+        return isMd5 || isMongoId;
+      }
+
       const [video, setVideo] = useState(null);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState("");
@@ -354,15 +363,28 @@
           setLoading(false);
           return;
         }
+        if (!isValidId(id)) {
+          setError("Invalid or unsupported video ID format.");
+          setLoading(false);
+          return;
+        }
         setLoading(true);
         setError("");
         setVideo(null);
         // Try both _id and hash
         fetch('/api/videos/' + encodeURIComponent(id))
-          .then(res => {
-            if (res.ok) return res.json();
-            if (res.status === 404) throw new Error("Video not found.");
-            throw new Error("Failed to load video.");
+          .then(async res => {
+            try {
+              if (res.ok) return await res.json();
+              if (res.status === 404) throw new Error("Video not found.");
+              // Try to parse error JSON, fallback
+              let data = null;
+              try { data = await res.json(); } catch (e) {}
+              throw new Error((data && data.error) ? data.error : "Failed to load video.");
+            } catch (e) {
+              // In case we get non-JSON (e.g. fallback HTML), show friendly error
+              throw new Error("Video not found or invalid video ID.");
+            }
           })
           .then(data => {
             setVideo(data);
@@ -500,6 +522,7 @@
   </script>
 </body>
 </html>
+
 
 
 
