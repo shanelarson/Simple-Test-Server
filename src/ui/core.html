@@ -58,6 +58,12 @@
       border: 1px solid #bbb;
       border-radius: 4px;
     }
+    .upload-form input.tags-input {
+      font-size: 1rem;
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+    }
     .upload-form button {
       padding: 10px 0;
       background: #1976D2;
@@ -106,6 +112,26 @@
       font-size: 0.95em;
       margin-bottom: 4px;
     }
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0 0 0;
+    }
+    .tag-badge {
+      display: inline-block;
+      background: #e0ecfa;
+      color: #174381;
+      border-radius: 999px;
+      padding: 3px 11px;
+      font-size: 0.96em;
+      font-weight: 500;
+      margin-right: 6px;
+      margin-bottom: 5px;
+      letter-spacing: 0.01em;
+      border: 1px solid #bfdafc;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -123,11 +149,11 @@
         timeStyle: 'short',
       });
     }
-
     function UploadVideo({ onUpload }) {
       const [title, setTitle] = useState('');
       const [desc, setDesc] = useState('');
       const [file, setFile] = useState(null);
+      const [tagsString, setTagsString] = useState('');
       const [uploading, setUploading] = useState(false);
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
@@ -148,6 +174,7 @@
         const fd = new FormData();
         fd.append('title', title);
         fd.append('description', desc);
+        fd.append('tags', tagsString);
         fd.append('video', file);
         fetch('/api/upload', {
           method: 'POST',
@@ -162,6 +189,7 @@
             setTitle('');
             setDesc('');
             setFile(null);
+            setTagsString('');
             if (onUpload) onUpload();
           })
           .catch(() => setError('Failed to upload video.'))
@@ -193,6 +221,13 @@
           accept: "video/*",
           onChange: e => setFile(e.target.files[0]),
           required: true
+        }),
+        React.createElement("input", {
+          type: "text",
+          className: "tags-input",
+          placeholder: "Tags (comma-separated, e.g. fun, cat, travel)",
+          value: tagsString,
+          onChange: e => setTagsString(e.target.value)
         }),
         React.createElement(
           "button",
@@ -330,10 +365,28 @@
                 title: "Copy link",
                 onClick: () => handleCopy(getShareUrl(v.filenameHash || v._id || ""))
               }, "Copy")
-            )
+            ),
+            // --- Tags Badges ---
+            Array.isArray(v.tags) && v.tags.length > 0
+              ? React.createElement(
+                  'div',
+                  { className: "tags-container" },
+                  v.tags.map((tag, idx) =>
+                    typeof tag === 'string' && tag.trim()
+                      ? React.createElement(
+                          'span',
+                          { className: "tag-badge", key: tag + idx },
+                          tag.trim()
+                        )
+                      : null
+                  )
+                )
+              : null
           )
         )
       );
+
+
     }
     // ----- Video Detail View Screen -----
     function VideoDetailView({ id }) {
@@ -672,6 +725,7 @@
   </script>
 </body>
 </html>
+
 
 
 
