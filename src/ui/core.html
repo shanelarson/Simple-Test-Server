@@ -645,18 +645,39 @@
               title: "Copy link",
               onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || id))
             }, "Copy")
-          )
-          ,
+          ),
+          // --- Tags Badges ---
+          Array.isArray(video.tags) && video.tags.length > 0
+            ? React.createElement(
+                'div',
+                { className: "tags-container" },
+                video.tags.map((tag, idx) =>
+                  typeof tag === 'string' && tag.trim()
+                    ? React.createElement(
+                        'span',
+                        { className: "tag-badge", key: tag + idx },
+                        tag.trim()
+                      )
+                    : null
+                )
+              )
+            : null,
           React.createElement(CommentSection, {
             video: video,
             videoId: id
           })
-
-
         ),
         React.createElement('div', { style: { marginTop: 32, textAlign: 'center' } },
           React.createElement('button', {
             type: "button",
+
+
+
+
+
+
+
+
             onClick: () => { window.location.href = "/"; }
           }, "Back to Home")
         )
@@ -725,6 +746,7 @@
   </script>
 </body>
 </html>
+
 
 
 
