@@ -33,6 +33,8 @@ export async function getDb() {
 }
 export async function insertVideo(doc) {
   const col = await getVideosCollection();
+  // Ensure the viewCount is initialized to 0 if not set in doc
+  if (typeof doc.viewCount !== 'number') doc.viewCount = 0;
   const result = await col.insertOne(doc);
   // Return the inserted document with its _id
   return { ...doc, _id: result.insertedId };
@@ -40,7 +42,9 @@ export async function insertVideo(doc) {
 
 export async function findAllVideos() {
   const col = await getVideosCollection();
-  return col.find({}).sort({ uploaded: -1 }).toArray();
+  // Always include viewCount in the returned results (default to 0 if missing for legacy)
+  const rawVideos = await col.find({}).sort({ uploaded: -1 }).toArray();
+  return rawVideos.map(v => ({ ...v, viewCount: (typeof v.viewCount === 'number') ? v.viewCount : 0 }));
 }
 
 // Utility: Find a single video by filenameHash (for debugging/demo)

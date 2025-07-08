@@ -36,12 +36,17 @@ router.get('/:id', async (req, res) => {
   }
   try {
     const db = await getDb();
-    const video = await db.collection('videos').findOne(query);
-    if (!video) {
+    // Increment viewCount atomically and return updated doc
+    const video = await db.collection('videos').findOneAndUpdate(
+      query,
+      { $inc: { viewCount: 1 } },
+      { returnDocument: 'after' }
+    );
+    if (!video.value) {
       return res.status(404).json({ error: 'Video not found' });
     }
     // Remove any sensitive/internal fields
-    const { s3Key, ...videoExport } = video;
+    const { s3Key, ...videoExport } = video.value;
     res.json(videoExport);
   } catch (err) {
     res.status(500).json({ error: 'Database error fetching video.' });
@@ -49,5 +54,6 @@ router.get('/:id', async (req, res) => {
 });
 
 export default router;
+
 
 

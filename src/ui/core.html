@@ -300,10 +300,24 @@
                   },
                   "No video URL"
                 ),
+            // --- View Count ---
+            React.createElement(
+              "div",
+              {
+                style: {
+                  margin: "8px 0 2px 0",
+                  fontWeight: 500,
+                  color: "#444",
+                  fontSize: "1.04em"
+                }
+              },
+              "Views: ",
+              loading ? "Loading..." : (typeof v.viewCount === "number" && v.viewCount >= 0 ? v.viewCount : "0")
+            ),
             // --- Share URL Box ---
             React.createElement(
               "div",
-              { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+              { style: { marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 } },
               React.createElement('input', {
                 style: { flex: 1 },
                 type: "text",
@@ -413,9 +427,25 @@
             controls: true,
             style: { width: '100%', background: "#eee", marginBottom: '12px' }
           }) : React.createElement("div", null, "No video URL available."),
+          // --- View Count ---
           React.createElement(
             "div",
-            { style: { marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 } },
+            {
+              style: {
+                marginTop: 8,
+                marginBottom: 2,
+                fontWeight: 500,
+                color: "#444",
+                fontSize: "1.08em"
+              }
+            },
+            "Views: ",
+            loading ? "Loading..." : (video && typeof video.viewCount === "number" && video.viewCount >= 0 ? video.viewCount : "0")
+          ),
+          // --- Share URL Box ---
+          React.createElement(
+            "div",
+            { style: { marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 } },
             React.createElement('input', {
               style: { flex: 1 },
               type: "text",
@@ -429,6 +459,13 @@
               onClick: () => handleCopy(getShareUrl(video.filenameHash || video._id || id))
             }, "Copy")
           )
+
+
+
+
+
+
+
         ),
         React.createElement('div', { style: { marginTop: 32, textAlign: 'center' } },
           React.createElement('button', {
@@ -499,6 +536,7 @@
   </script>
 </body>
 </html>
+
 
 
 
