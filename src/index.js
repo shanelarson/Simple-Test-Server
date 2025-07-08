@@ -34,11 +34,27 @@ app.get('/', (req, res) => {
 // ----- API Endpoints from src/endpoints/ -----
 import getVideosRouter from './endpoints/getVideos.js';
 import uploadVideoRouter from './endpoints/uploadVideo.js';
+import getVideoByIdRouter from './endpoints/getVideoById.js';
 
-app.use('/api/videos', getVideosRouter);
+// Combine both the video list and get-by-id routers into one under /api/videos
+import { Router } from 'express';
+const videosRouter = Router();
+// Mount the list endpoint
+videosRouter.use('/', getVideosRouter);
+// Mount the get-by-id endpoint (must come after "/")
+videosRouter.use('/', getVideoByIdRouter);
+
+app.use('/api/videos', videosRouter);
 app.use('/api/upload', uploadVideoRouter);
 
 // ========== Fallback: handle everything else by returning SPA ==========
+
+
+
+
+
+
+
 // Serve /view path with video ID to core.html, injecting params via a script tag
 app.get('/view', (req, res) => {
   const id = typeof req.query.id === 'string' ? req.query.id : undefined;
@@ -69,6 +85,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Video sharing app listening at http://localhost:${PORT}`);
 });
+
 
 
 
