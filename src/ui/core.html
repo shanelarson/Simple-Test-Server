@@ -157,7 +157,6 @@
       const [uploading, setUploading] = useState(false);
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
-
       function handleSubmit(e) {
         e.preventDefault();
         setError('');
@@ -181,8 +180,24 @@
           body: fd,
         })
           .then(async resp => {
-            if (!resp.ok) throw new Error('Upload failed');
-            return resp.json();
+            if (resp.ok) {
+              return resp.json();
+            }
+            // Check for 429 (rate limit)
+            if (resp.status === 429) {
+              let data;
+              try {
+                data = await resp.json();
+              } catch {}
+              // Show server-provided rate limit error message if present, fallback generic otherwise
+              throw new Error(data && data.error ? data.error : 'You have reached your upload limit. Please try again later.');
+            }
+            // Try to extract error message for other error statuses
+            let data = null;
+            try {
+              data = await resp.json();
+            } catch {}
+            throw new Error((data && data.error) ? data.error : 'Failed to upload video.');
           })
           .then(data => {
             setSuccess('Upload successful!');
@@ -192,7 +207,10 @@
             setTagsString('');
             if (onUpload) onUpload();
           })
-          .catch(() => setError('Failed to upload video.'))
+          .catch(err => {
+            // Use error message for rate limit and fall back for others
+            setError(err.message && err.message !== 'Upload failed' ? err.message : 'Failed to upload video.');
+          })
           .finally(() => setUploading(false));
       }
       return React.createElement(
@@ -970,6 +988,7 @@
   </script>
 </body>
 </html>
+
 
 
 
