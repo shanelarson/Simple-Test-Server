@@ -1,3 +1,6 @@
+
+// No changes required in getClientIp.js for video rate limiting.
+
 // Helper to extract the client IP from an Express request, supporting X-Forwarded-For and proxies
 export function getClientIp(req) {
   // Trust X-Forwarded-For if present (in reverse proxy setups), else req.ip
@@ -17,3 +20,4 @@ export function getClientIp(req) {
   }
   return ip;
 }
+

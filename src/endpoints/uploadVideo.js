@@ -3,6 +3,8 @@ import multer from 'multer';
 import { uploadToS3 } from '../utils/s3Upload.js';
 import { insertVideo } from '../utils/mongo.js';
 import crypto from 'crypto';
+import { getClientIp } from '../utils/getClientIp.js';
+import { canUploadVideo, recordVideoUpload } from '../utils/rateLimitVideos.js';
 
 const router = Router();
 
@@ -28,6 +30,29 @@ router.post('/', upload.single('video'), async (req, res) => {
 
     if (!title || !videoFile) {
       return res.status(400).json({ error: 'Missing required fields or file.' });
+    }
+    // --- VIDEO RATE LIMIT CHECK ---
+    const clientIp = getClientIp(req);
+    try {
+      const { allowed, retryAfterMs } = await canUploadVideo(clientIp);
+      if (!allowed) {
+        let retrySecs = Math.ceil((retryAfterMs || 0) / 1000);
+        let mins = Math.floor(retrySecs / 60);
+        let hrs = Math.floor(mins / 60);
+        mins = mins % 60;
+        let msg = "You can only upload up to 5 videos per day from your IP address.";
+        if (retrySecs > 0) {
+          let human = "";
+          if (hrs > 0) human += `${hrs}h `;
+          if (mins > 0) human += `${mins}m `;
+          if (retrySecs % 60 > 0) human += `${retrySecs % 60}s`;
+          msg += ` Please try again in ${human.trim()}.`;
+        }
+        return res.status(429).json({ error: msg, retryAfterSeconds: retrySecs });
+      }
+    } catch (rlErr) {
+      console.error("Video rate limit check failed:", rlErr);
+      return res.status(500).json({ error: "Failed to enforce upload rate limit." });
     }
     // Trim and handle values as specified
     title = title.trim();
@@ -82,14 +107,14 @@ router.post('/', upload.single('video'), async (req, res) => {
         likes: 0, // Initialize likes to 0 on upload
       };
       const inserted = await insertVideo(doc);
+      // --- Record upload for IP only after success ---
+      try {
+        await recordVideoUpload(clientIp);
+      } catch (rlError) {
+        // Log but don't fail the response if stats update fails
+        console.error("Failed to record video rate limit usage:", rlError);
+      }
       res.status(201).json(inserted);
-
-
-
-
-
-
-
     } catch (mongoError) {
       // Clean up the just-uploaded S3 object if DB error
       try {
@@ -103,7 +128,6 @@ router.post('/', upload.single('video'), async (req, res) => {
   }
 });
 export default router;
-
 
 
 
