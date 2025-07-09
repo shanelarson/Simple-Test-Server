@@ -3,6 +3,8 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../utils/mongo.js';
 import { moderateText } from '../utils/moderation.js';
+import { getClientIp } from '../utils/getClientIp.js';
+import { canComment, recordComment } from '../utils/rateLimitComments.js';
 
 const router = express.Router();
 
@@ -20,13 +22,47 @@ router.post('/', async (req, res) => {
   }
   // Accept videoId as ObjectId or filenameHash (md5)
   let videoObjectId = null, filenameHash = null;
+  let rateLimitType = null, rateLimitId = null;
   if (/^[a-fA-F0-9]{24}$/.test(videoId)) {
     videoObjectId = new ObjectId(videoId);
+    rateLimitType = 'objectId';
+    rateLimitId = videoObjectId;
   } else if (/^[a-fA-F0-9]{32}$/.test(videoId)) {
     filenameHash = videoId.toLowerCase();
+    rateLimitType = 'hash';
+    rateLimitId = filenameHash;
   } else {
     return res.status(400).json({ error: 'Invalid videoId format.' });
   }
+  // --- COMMENT RATE LIMIT LOGIC ---
+  try {
+    const clientIp = getClientIp(req);
+    // Returns { allowed, retryAfterMs, lastComment, doc }
+    const limitState = await canComment({
+      videoId: rateLimitId,
+      type: rateLimitType,
+      clientIp
+    });
+    if (!limitState.allowed) {
+      let retrySecs = Math.ceil(limitState.retryAfterMs / 1000);
+      let mins = Math.floor(retrySecs / 60);
+      let hrs = Math.floor(mins / 60);
+      mins = mins % 60;
+      let msg = "You can only add one comment per day per video from your IP address.";
+      if (retrySecs > 0) {
+        let human = "";
+        if (hrs > 0) human += `${hrs}h `;
+        if (mins > 0) human += `${mins}m `;
+        if (retrySecs % 60 > 0) human += `${retrySecs % 60}s`;
+        msg += ` Please try again in ${human.trim()}.`;
+      }
+      return res.status(429).json({ error: msg, retryAfterSeconds: retrySecs });
+    }
+  } catch (rateErr) {
+    console.error("Comment rate limit internal error:", rateErr);
+    return res.status(500).json({ error: "Rate limit check failed." });
+  }
+
   // --- OpenAI Moderation Check ---
   try {
     let moderationResult;
@@ -46,6 +82,21 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         error: 'Your comment could not be added because it may violate our content guidelines.'
       });
+    }
+    // --- record the comment in rateLimitComments collection for this IP/video ---
+    try {
+      const clientIp = getClientIp(req);
+      // Ensure (IP, videoId) updated or inserted before actual comment insert
+      await recordComment({
+        videoId: rateLimitId,
+        type: rateLimitType,
+        clientIp,
+      });
+    } catch (err) {
+      console.error("Error updating rateLimitComments collection:", err);
+      // Don't block comment post if just stats error, but log it
+      // (Or you can block and error out if data integrity is paramount)
+      return res.status(500).json({ error: "Failed to update comment rate limit. Please try again." });
     }
     const db = await getDb();
     const doc = {
@@ -100,5 +151,6 @@ router.get('/:videoId', async (req, res) => {
 export default router;
 // To use OpenAI moderation your environment must have OPENAI_API_KEY set (see README or deployment docs)
 // If you see "OpenAI moderation not configured", set the variable in your .env or deployment environment.
+
 
 
