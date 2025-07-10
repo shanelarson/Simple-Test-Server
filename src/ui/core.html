@@ -630,6 +630,35 @@
                 },
                 "Your browser does not support the video element."
                 ),
+
+                // --- Position Badges (now before Remove Video button) ---
+                positionsList.length > 0
+                  ? React.createElement('div', { className: "tags-container", style: { marginTop: 6, marginBottom: 5 } },
+                      positionsList.map((posSec, idx) =>
+                        React.createElement(
+                          'span',
+                          {
+                            className: "tag-badge",
+                            key: "posup-" + posSec,
+                            tabIndex: 0,
+                            style: { background: "#2675cb", color: "#fff", cursor: previewUrl ? "pointer" : "default" },
+                            title: "Jump to " + secondsToTimeStr(posSec),
+                            onClick: previewUrl
+                              ? () => {
+                                  const vdom = document.querySelector('video[aria-label="Video Preview"]');
+                                  if (vdom && typeof vdom.currentTime !== "undefined") {
+                                    vdom.currentTime = posSec;
+                                    vdom.focus();
+                                  }
+                                }
+                              : undefined
+                          },
+                          secondsToTimeStr(posSec)
+                        )
+                      )
+                    )
+                  : null,
+
                 React.createElement("button", {
                   type: "button",
                   onClick: function() {
@@ -643,48 +672,17 @@
                     const inp = document.querySelector(".upload-form input[type='file']");
                     if (inp) inp.value = "";
                   },
-                  style: { background: "#e91e63", color: "#fff", border: "none", borderRadius: "4px", fontSize: "0.98em", cursor: "pointer", padding: "6px 16px" }
+                  style: { background: "#e91e63", color: "#fff", border: "none", borderRadius: "4px", fontSize: "0.98em", cursor: "pointer", padding: "6px 16px", marginBottom: 0 }
                 }, "Remove Video")
-                ,
-                // --- Position Badges (below preview) ---
-                positionsList.length > 0
-                ? React.createElement('div', { className: "tags-container", style: { marginTop: 6, marginBottom: 5 } },
-                  positionsList.map((posSec, idx) =>
-                    React.createElement(
-                      'span',
-                      {
-                        className: "tag-badge",
-                        key: "posup-" + posSec,
-                        tabIndex: 0,
-                        style: { background: "#2675cb", color: "#fff", cursor: previewUrl ? "pointer" : "default" },
-                        title: "Jump to " + secondsToTimeStr(posSec),
-                        onClick: previewUrl
-                          ? () => {
-                              const vdom = document.querySelector('video[aria-label="Video Preview"]');
-                              if (vdom && typeof vdom.currentTime !== "undefined") {
-                                vdom.currentTime = posSec;
-                                vdom.focus();
-                              }
-                            }
-                          : undefined
-                      },
-                      secondsToTimeStr(posSec)
-                    )
-                  )
-                ) : null
               )
             : null
           )
         ),
+
+        // --- Timestamps input and label (now above Tags) ---
+        React.createElement("label", { htmlFor: "upload-timestamps", style: { fontWeight: 500, marginBottom: 2, marginTop: 2 } }, "Timestamps"),
         React.createElement("input", {
-          type: "text",
-          className: "tags-input",
-          placeholder: "Tags (comma-separated, e.g. fun, cat, travel)",
-          value: tagsString,
-          onChange: e => setTagsString(e.target.value)
-        }),
-        // --- Positions input ---
-        React.createElement("input", {
+          id: "upload-timestamps",
           type: "text",
           className: "tags-input",
           placeholder: "Timestamps (comma-separated, e.g. 1:05, 3:22, 02:00:10)",
@@ -696,6 +694,18 @@
         }),
         React.createElement("div", { style: { fontSize: "0.96em", color: "#888", marginLeft: 1, marginTop: 0, marginBottom: 5 } }, "Timestamps format: H:MM:SS, M:SS or SS; must not exceed video duration."),
         positionsError && positionsInputTouched ? React.createElement("div", { style: { color: "crimson", marginBottom: 4 } }, positionsError) : null,
+
+        // --- Tags input and label (now below Timestamps) ---
+        React.createElement("label", { htmlFor: "upload-tags", style: { fontWeight: 500, marginBottom: 2, marginTop: 2 } }, "Tags"),
+        React.createElement("input", {
+          id: "upload-tags",
+          type: "text",
+          className: "tags-input",
+          placeholder: "Tags (comma-separated, e.g. fun, cat, travel)",
+          value: tagsString,
+          onChange: e => setTagsString(e.target.value)
+        }),
+
         // --- CAPTCHA UI Section (just above submit) ---
         React.createElement(
           "div",
@@ -1769,6 +1779,7 @@
   </script>
 </body>
 </html>
+
 
 
 
