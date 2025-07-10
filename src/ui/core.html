@@ -5,29 +5,95 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Simple Video Sharing Platform</title>
   <style>
+    :root {
+      /* Light theme values (default, overridden for dark) */
+      --background-main: #f7f7f7;
+      --background-card: #fafbfc;
+      --background-card-alt: #fff;
+      --text-main: #14171a;
+      --text-secondary: #666;
+      --text-tertiary: #888;
+      --text-heading: #111;
+      --divider: #e0e0e0;
+      --border-main: #ececec;
+      --border-input: #bbb;
+      --border-tag: #bfdafc;
+      --bg-tag: #e0ecfa;
+      --color-tag: #174381;
+      --bg-video: #eee;
+      --bg-btn: #1976D2;
+      --bg-btn-accent: #e91e63;
+      --btn-disabled: #b6b6b6;
+      --btn-text: #fff;
+      --shadow-main: 0 2px 10px rgba(0,0,0,0.07);
+      --hr: #e0e0e0;
+      --color-error: crimson;
+      --color-success: #1fd971;
+      --color-green: green;
+      --color-copy-btn: #1976D2;
+      --bg-captcha: #fcfcfc;
+      --input-bg: #fff;
+      --input-text: #111;
+      --bg-comment: #f9fafb;
+    }
+    .theme-dark {
+      --background-main: #181a1b;
+      --background-card: #23272a;
+      --background-card-alt: #22262a;
+      --text-main: #ececec;
+      --text-secondary: #b5bcc6;
+      --text-tertiary: #999;
+      --text-heading: #fff;
+      --divider: #23272a;
+      --border-main: #2e3239;
+      --border-input: #374151;
+      --border-tag: #334455;
+      --bg-tag: #253348;
+      --color-tag: #aad1ff;
+      --bg-video: #101214;
+      --bg-btn: #2675cb;
+      --bg-btn-accent: #e35683;
+      --btn-disabled: #383b40;
+      --btn-text: #f7f7fb;
+      --shadow-main: 0 2px 16px rgba(0,0,0,0.27);
+      --hr: #23272a;
+      --color-error: #ff5757;
+      --color-success: #0bdf87;
+      --color-green: #0bdf87;
+      --color-copy-btn: #1976D2;
+      --bg-captcha: #15181c;
+      --input-bg: #232a2f;
+      --input-text: #f5f6fa;
+      --bg-comment: #23272a;
+    }
     body {
       font-family: sans-serif;
-      background: #f7f7f7;
+      background: var(--background-main);
+      color: var(--text-main);
       margin: 0;
       padding: 0;
+      transition: background 0.15s, color 0.15s;
     }
     #root {
       max-width: 800px;
       margin: 32px auto;
-      background: #fff;
-      padding: 24px 32px 40px 32px;
+      background: var(--background-card-alt);
+      color: var(--text-main);
+      padding: 24px 32px 78px 32px; /* add space for theme toggle */
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      box-shadow: var(--shadow-main);
+      transition: background 0.15s, color 0.15s;
     }
     h1 {
       text-align: center;
       font-size: 2rem;
       margin-top: 0;
+      color: var(--text-heading);
     }
     .tabs {
       display: flex;
       margin-bottom: 24px;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid var(--divider);
     }
     .tab {
       padding: 12px 30px;
@@ -38,10 +104,12 @@
       font-size: 1rem;
       margin-right: 16px;
       border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
+      transition: color 0.14s;
     }
     .tab.active {
-      border-bottom: 2px solid #1976D2;
-      color: #1976D2;
+      border-bottom: 2px solid var(--bg-btn);
+      color: var(--bg-btn);
       font-weight: bold;
     }
     .upload-form {
@@ -55,27 +123,34 @@
     .upload-form textarea {
       font-size: 1rem;
       padding: 6px 8px;
-      border: 1px solid #bbb;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      transition: background 0.15s, color 0.15s, border 0.17s;
     }
     .upload-form input.tags-input {
       font-size: 1rem;
       padding: 6px 8px;
-      border: 1px solid #bbb;
+      border: 1px solid var(--border-input);
       border-radius: 4px;
+      background: var(--input-bg);
+      color: var(--input-text);
     }
     .upload-form button {
       padding: 10px 0;
-      background: #1976D2;
-      color: #fff;
+      background: var(--bg-btn);
+      color: var(--btn-text);
       border: none;
       border-radius: 4px;
       font-size: 1rem;
       cursor: pointer;
       margin-top: 8px;
+      transition: background 0.13s, color 0.13s;
     }
     .upload-form button:disabled {
-      background: #b6b6b6;
+      background: var(--btn-disabled);
+      color: var(--btn-text);
       cursor: not-allowed;
     }
     .video-list {
@@ -84,19 +159,21 @@
       gap: 32px;
     }
     .video-card {
-      background: #fafbfc;
-      border: 1px solid #ececec;
+      background: var(--background-card);
+      border: 1px solid var(--border-main);
       border-radius: 5px;
       padding: 16px;
       display: flex;
       flex-direction: column;
+      transition: background 0.16s, color 0.16s, border 0.16s;
     }
     .video-card video {
       width: 100%;
       height: auto;
       display: block;
-      background: #eee;
+      background: var(--bg-video);
       margin-bottom: 10px;
+      border-radius: 6px;
     }
     .video-info {
       margin-top: 2px;
@@ -106,9 +183,10 @@
       font-weight: bold;
       font-size: 1.1rem;
       margin-bottom: 4px;
+      color: var(--text-heading);
     }
     .video-date {
-      color: #666;
+      color: var(--text-secondary);
       font-size: 0.95em;
       margin-bottom: 4px;
     }
@@ -120,8 +198,8 @@
     }
     .tag-badge {
       display: inline-block;
-      background: #e0ecfa;
-      color: #174381;
+      background: var(--bg-tag);
+      color: var(--color-tag);
       border-radius: 999px;
       padding: 3px 11px;
       font-size: 0.96em;
@@ -129,8 +207,64 @@
       margin-right: 6px;
       margin-bottom: 5px;
       letter-spacing: 0.01em;
-      border: 1px solid #bfdafc;
+      border: 1px solid var(--border-tag);
       user-select: none;
+    }
+    /* THEME TOGGLE */
+    .theme-toggle-container {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 5000;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--background-card-alt);
+      border-radius: 22px;
+      border: 1px solid var(--border-main);
+      box-shadow: 0 1px 10px rgba(0,0,0,0.07);
+      padding: 7px 24px 7px 16px;
+      user-select: none;
+      min-width: 164px;
+      transition: background 0.18s, color 0.18s;
+    }
+    .theme-toggle-label {
+      font-size: 1.07em;
+      font-weight: 500;
+      color: var(--text-main);
+      margin-right: 4px;
+      letter-spacing: 0.01em;
+    }
+    .theme-toggle-btn {
+      padding: 3.5px 14px;
+      border: none;
+      outline: none;
+      border-radius: 6px;
+      background: none;
+      margin-left: 3px;
+      margin-right: 3px;
+      color: var(--text-main);
+      font-weight: 500;
+      font-size: 1em;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: background 0.13s, color 0.13s, opacity 0.12s;
+    }
+    .theme-toggle-btn.selected, .theme-toggle-btn:active {
+      background: var(--bg-btn);
+      color: var(--btn-text);
+      opacity: 1;
+    }
+    .theme-toggle-btn:not(.selected):hover {
+      background: var(--divider);
+      color: var(--text-main);
+      opacity: 1;
+    }
+    @media (max-width: 700px) {
+      .theme-toggle-container {
+        padding: 7px 7vw 7px 6vw;
+      }
     }
   </style>
 </head>
@@ -1085,7 +1219,38 @@
         likeError ? React.createElement("span", { style: { color: "crimson", fontSize: "0.98em" } }, likeError) : null
       );
     }
+    // --- Theme Management (top-level state and helpers) ---
+    function getInitialTheme() {
+      // default 'dark' unless explicit light
+      if (typeof window !== "undefined" && window.localStorage) {
+        let t = window.localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') return t;
+      }
+      return "dark";
+    }
+    function setThemeClassOnBody(theme) {
+      if (typeof document !== "undefined") {
+        document.body.classList.remove('theme-light');
+        document.body.classList.remove('theme-dark');
+        document.body.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+      }
+    }
+
     function App() {
+      // Theme state
+      const [theme, setTheme] = useState(getInitialTheme());
+      // On theme change, update document.body class and persist to localStorage
+      useEffect(() => {
+        setThemeClassOnBody(theme);
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem('theme', theme);
+        }
+      }, [theme]);
+      // Also on initial mount, force class set (esp. for SSR or bad cases)
+      useEffect(() => {
+        setThemeClassOnBody(theme);
+      }, []);
+
       // Refresh key triggers video list reload
       const [tab, setTab] = useState('upload');
       const [refresh, setRefresh] = useState(0);
@@ -1094,11 +1259,13 @@
       // Routing (based on window.VIDEO_ID only)
       const videoId = typeof window !== "undefined" ? window.VIDEO_ID : null;
       if (videoId) {
-        return React.createElement(VideoDetailView, { id: videoId });
+        return React.createElement(React.Fragment, {},
+          React.createElement(VideoDetailView, { id: videoId }),
+          React.createElement(ThemeToggle, { theme, setTheme })
+        );
       }
-
       return React.createElement(
-        "div",
+        React.Fragment,
         null,
         React.createElement("h1", null, "Simple Video Sharing Platform"),
         React.createElement(
@@ -1153,7 +1320,29 @@
           : null,
         tab === "search"
           ? React.createElement(SearchTab, { key: searchState.reset || "search" })
-          : null
+          : null,
+        React.createElement(ThemeToggle, { theme, setTheme })
+      );
+    }
+
+    function ThemeToggle({ theme, setTheme }) {
+      // Put visually at bottom center, see CSS above
+      return React.createElement(
+        "div",
+        { className: "theme-toggle-container" },
+        React.createElement("span", { className: "theme-toggle-label" }, "Theme:"),
+        React.createElement("button", {
+          className: "theme-toggle-btn" + (theme === "dark" ? " selected" : ""),
+          type: "button",
+          onClick: () => setTheme("dark"),
+          tabIndex: 0
+        }, "Dark"),
+        React.createElement("button", {
+          className: "theme-toggle-btn" + (theme === "light" ? " selected" : ""),
+          type: "button",
+          onClick: () => setTheme("light"),
+          tabIndex: 0
+        }, "Light")
       );
     }
 
@@ -1269,19 +1458,4 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
