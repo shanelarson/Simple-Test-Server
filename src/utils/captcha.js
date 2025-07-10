@@ -20,8 +20,12 @@ export function generateCaptcha() {
   captcha.addDecoy();
   captcha.drawTrace();
   captcha.drawCaptcha();
-  // image is PNG base64 (without data URI prefix)
-  const image = captcha.png;
+  // Defensive check for captcha.png buffer
+  if (!captcha.png || !(captcha.png instanceof Buffer)) {
+    throw new Error('Captcha image generation failed.');
+  }
+  // Convert image buffer to base64 (without data URI prefix)
+  const image = captcha.png.toString('base64');
   const text = captcha.text; // The solution
   const hash = md5(text + CAPTCHA_SALT);
   return { image, hash };
@@ -38,3 +42,4 @@ export function validateCaptcha(captchaText, captchaHash) {
   const expected = md5(captchaText + CAPTCHA_SALT);
   return expected === captchaHash;
 }
+
