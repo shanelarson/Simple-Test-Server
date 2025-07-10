@@ -291,6 +291,13 @@
       const [previewUrl, setPreviewUrl] = useState(null);
       const [fileError, setFileError] = useState('');
       const [tagsString, setTagsString] = useState('');
+      // --- Positions state for timestamp markers ---
+      const [positionsString, setPositionsString] = useState('');
+      const [positionsList, setPositionsList] = useState([]); // list of validated seconds (as numbers)
+      const [positionsError, setPositionsError] = useState('');
+      const [positionsRawDisplay, setPositionsRawDisplay] = useState([]); // original user order formatted back for display
+      const [positionsInputTouched, setPositionsInputTouched] = useState(false);
+
       const [uploading, setUploading] = useState(false);
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
@@ -393,6 +400,18 @@
           setError('Captcha is required.');
           return;
         }
+        // Validate positions for final check
+        // Set error message and don't submit if positions invalid
+        if (positionsString.trim()) {
+          const vres = validatePositionsInput(positionsString, file, previewUrl);
+          if (vres.error) {
+            setPositionsError(vres.error);
+            setPositionsInputTouched(true);
+            return;
+          }
+          // must have vres.validSeconds and vres.displayFormatArr
+        }
+
         setUploading(true);
         const fd = new FormData();
         fd.append('title', title);
@@ -401,6 +420,10 @@
         fd.append('video', file);
         fd.append('captchaText', captchaText.trim());
         fd.append('captchaHash', captchaHash);
+        // Submit positions if valid, as JSON string (or just comma-separated)
+        if (positionsList && positionsList.length > 0) {
+          fd.append('positions', JSON.stringify(positionsList));
+        }
         fetch('/api/upload', {
           method: 'POST',
           body: fd,
@@ -435,6 +458,11 @@
             setDesc('');
             setFile(null);
             setTagsString('');
+            setPositionsString('');
+            setPositionsRawDisplay([]);
+            setPositionsList([]);
+            setPositionsError('');
+            setPositionsInputTouched(false);
             setCaptchaText('');
             fetchCaptcha();
             if (onUpload) onUpload();
@@ -444,6 +472,89 @@
           })
           .finally(() => setUploading(false));
       }
+
+      // --- Custom position-time input logic ---
+      function timeStrToSeconds(str) {
+        // Accepts "h:m:s", "m:s", "s", "00:01:13", "00:19", etc.
+        if (!str) return null;
+        const cleaned = str.trim();
+        if (!cleaned) return null;
+        const parts = cleaned.split(':').map(part => part.trim()).filter(Boolean);
+        if (parts.some(p => p === "")) return null;
+        if (parts.length === 0 || parts.length > 3) return null;
+        let h=0, m=0, s=0;
+        if (parts.length === 3) {
+          h = +parts[0];
+          m = +parts[1];
+          s = +parts[2];
+        } else if (parts.length === 2) {
+          m = +parts[0];
+          s = +parts[1];
+        } else if (parts.length === 1) {
+          s = +parts[0];
+        }
+        if ([h, m, s].some(x => Number.isNaN(x) || x < 0 || !Number.isFinite(x))) return null;
+        if (m >= 60 || s >= 60) return null;
+        return h*3600 + m*60 + s;
+      }
+      function secondsToTimeStr(secs) {
+        // Returns "H:MM:SS" or "M:SS" (pad seconds, show hours if needed)
+        secs = Math.floor(secs);
+        if (secs < 0) return "0:00";
+        const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+        if (h > 0) {
+          return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        } else {
+          return `${m}:${s.toString().padStart(2,'0')}`;
+        }
+      }
+      function validatePositionsInput(str, file, previewUrl) {
+        // Returns { error: (string or null), validSeconds: [number,...], displayFormatArr: [string,...] }
+        // If previewUrl (video loaded), access duration (from DOM)
+        let dur = null;
+        if (previewUrl) {
+          const videoDom = document.querySelector('video[aria-label="Video Preview"]');
+          if (videoDom && !isNaN(videoDom.duration) && isFinite(videoDom.duration) && videoDom.duration > 0) dur = videoDom.duration;
+        }
+        let arr = str.split(',').map(s => s.trim()).filter(Boolean);
+        if (!arr.length) return { error: null, validSeconds: [], displayFormatArr: [] };
+        let seen = new Set();
+        let out = [];
+        let origFmt = [];
+        for (let i = 0; i < arr.length; ++i) {
+          let token = arr[i];
+          let secs = timeStrToSeconds(token);
+          if (secs === null) return { error: `Invalid time format: "${token}" (use H:MM:SS or M:SS)`, validSeconds: [], displayFormatArr: [] };
+          if (secs < 0) return { error: `Time must not be negative (${token}).`, validSeconds: [], displayFormatArr: [] };
+          if (dur !== null && secs > Math.floor(dur) + 1) { // Allow 1s of fudge
+            return { error: `Position ${secondsToTimeStr(secs)} is beyond the video duration (${secondsToTimeStr(Math.floor(dur))}).`, validSeconds: [], displayFormatArr: [] };
+          }
+          if (seen.has(secs)) continue; // skip duplicate
+          seen.add(secs);
+          out.push(secs);
+          origFmt.push(secondsToTimeStr(secs));
+        }
+        return { error: null, validSeconds: out, displayFormatArr: origFmt };
+      }
+      // When user edits the input, validate and update badges
+      useEffect(() => {
+        if (!positionsString.trim()) {
+          setPositionsList([]);
+          setPositionsRawDisplay([]);
+          setPositionsError('');
+          return;
+        }
+        const vres = validatePositionsInput(positionsString, file, previewUrl);
+        if (vres.error) {
+          setPositionsRawDisplay([]); setPositionsList([]);
+          setPositionsError(vres.error);
+        } else {
+          setPositionsRawDisplay(vres.displayFormatArr);
+          setPositionsList(vres.validSeconds);
+          setPositionsError('');
+        }
+      // intentionally ignore positionsInputTouched here; only factor raw string, video file, previewUrl
+      }, [positionsString, file, previewUrl]);
       return React.createElement(
         "form",
         {
@@ -534,6 +645,33 @@
                   },
                   style: { background: "#e91e63", color: "#fff", border: "none", borderRadius: "4px", fontSize: "0.98em", cursor: "pointer", padding: "6px 16px" }
                 }, "Remove Video")
+                ,
+                // --- Position Badges (below preview) ---
+                positionsList.length > 0
+                ? React.createElement('div', { className: "tags-container", style: { marginTop: 6, marginBottom: 5 } },
+                  positionsList.map((posSec, idx) =>
+                    React.createElement(
+                      'span',
+                      {
+                        className: "tag-badge",
+                        key: "posup-" + posSec,
+                        tabIndex: 0,
+                        style: { background: "#2675cb", color: "#fff", cursor: previewUrl ? "pointer" : "default" },
+                        title: "Jump to " + secondsToTimeStr(posSec),
+                        onClick: previewUrl
+                          ? () => {
+                              const vdom = document.querySelector('video[aria-label="Video Preview"]');
+                              if (vdom && typeof vdom.currentTime !== "undefined") {
+                                vdom.currentTime = posSec;
+                                vdom.focus();
+                              }
+                            }
+                          : undefined
+                      },
+                      secondsToTimeStr(posSec)
+                    )
+                  )
+                ) : null
               )
             : null
           )
@@ -545,6 +683,19 @@
           value: tagsString,
           onChange: e => setTagsString(e.target.value)
         }),
+        // --- Positions input ---
+        React.createElement("input", {
+          type: "text",
+          className: "tags-input",
+          placeholder: "Timestamps (comma-separated, e.g. 1:05, 3:22, 02:00:10)",
+          value: positionsString,
+          onChange: e => { setPositionsString(e.target.value); setPositionsInputTouched(true); },
+          onBlur: () => setPositionsInputTouched(true),
+          disabled: !file,
+          style: positionsError && positionsInputTouched ? { borderColor: "crimson" } : undefined
+        }),
+        React.createElement("div", { style: { fontSize: "0.96em", color: "#888", marginLeft: 1, marginTop: 0, marginBottom: 5 } }, "Timestamps format: H:MM:SS, M:SS or SS; must not exceed video duration."),
+        positionsError && positionsInputTouched ? React.createElement("div", { style: { color: "crimson", marginBottom: 4 } }, positionsError) : null,
         // --- CAPTCHA UI Section (just above submit) ---
         React.createElement(
           "div",
@@ -686,6 +837,20 @@
         typeof video.likes === "number" ? video.likes : 0
       );
       const [likeError, setLikeError] = useState("");
+
+      // Helper to format seconds to H:MM:SS or M:SS
+      function secondsToTimeStr(secs) {
+        secs = Math.floor(secs);
+        if (secs < 0) return "0:00";
+        const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+        if (h > 0) {
+          return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        } else {
+          return `${m}:${s.toString().padStart(2,'0')}`;
+        }
+      }
+
+      // Render
       return React.createElement(
         "div",
         { className: "video-card" },
@@ -720,6 +885,37 @@
               },
               "No video URL"
             ),
+        // --- Position Badges (display under video!) ---
+        Array.isArray(video.positions) && video.positions.length > 0
+          ? React.createElement(
+              'div',
+              { className: "tags-container", style: { marginTop: 8 } },
+              video.positions.map((posSec, idx) =>
+                typeof posSec === 'number' && posSec >= 0
+                  ? React.createElement(
+                      'span',
+                      {
+                        className: "tag-badge",
+                        key: "pos-" + posSec,
+                        tabIndex: 0,
+                        style: { background: "#2675cb", color: "#fff", cursor: "pointer" },
+                        title: "Jump to " + secondsToTimeStr(posSec),
+                        onClick: () => {
+                          // Find the video player in this card (first child node)
+                          const card = (event.target || {}).closest && typeof (event.target.closest) === "function" ? event.target.closest(".video-card") : null;
+                          const vdom = card ? card.querySelector("video") : null;
+                          if (vdom && typeof vdom.currentTime === "number") {
+                            vdom.currentTime = posSec;
+                            vdom.focus();
+                          }
+                        }
+                      },
+                      secondsToTimeStr(posSec)
+                    )
+                  : null
+              )
+            )
+          : null,
         // --- View Count ---
         React.createElement(
           "div",
@@ -1536,6 +1732,7 @@
   </script>
 </body>
 </html>
+
 
 
 

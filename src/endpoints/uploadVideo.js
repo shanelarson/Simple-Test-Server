@@ -124,6 +124,40 @@ router.post('/', upload.single('video'), async (req, res) => {
     }
     // Insert document in MongoDB
     try {
+      // --- Positions Parsing and Validation ---
+      let positions = [];
+      if (typeof req.body.positions === "string" && req.body.positions.trim().length > 0) {
+        try {
+          // Accepts: JSON stringified array or comma-separated string of seconds
+          let maybe = req.body.positions.trim();
+          if (maybe.startsWith("[") && maybe.endsWith("]")) {
+            // JSON-formatted array
+            const parsed = JSON.parse(maybe);
+            if (Array.isArray(parsed)) {
+              positions = parsed;
+            }
+          } else {
+            // CSV of seconds, e.g. "15, 26, 120"
+            positions = maybe.split(",").map(x => Number(x.trim()));
+          }
+        } catch (ex) {
+          // Invalid JSON or parse error
+          return res.status(400).json({ error: "Invalid positions data." });
+        }
+        // Validate all are numbers, >= 0, integers or floats, unique
+        if (!Array.isArray(positions) ||
+            positions.some(p => typeof p !== "number" || isNaN(p) || p < 0 || !isFinite(p))) {
+          return res.status(400).json({ error: "Positions must be an array of non-negative numbers." });
+        }
+        // No duplicates (within small epsilon for floats)
+        const uniqPos = [];
+        const EPS = 0.01;
+        positions.forEach(p => {
+          if (!uniqPos.some(e => Math.abs(e - p) < EPS)) uniqPos.push(p);
+        });
+        positions = uniqPos;
+      }
+
       const doc = {
         title,
         description: description,
@@ -137,6 +171,7 @@ router.post('/', upload.single('video'), async (req, res) => {
         viewCount: 0, // Initialize viewCount to 0 on upload
         tags: tags,
         likes: 0, // Initialize likes to 0 on upload
+        positions: Array.isArray(positions) ? positions : [],
       };
       const inserted = await insertVideo(doc);
       // --- Record upload for IP only after success ---
@@ -159,6 +194,6 @@ router.post('/', upload.single('video'), async (req, res) => {
     res.status(500).json({ error: 'Unexpected server error.' });
   }
 });
-
 export default router;
+
 
