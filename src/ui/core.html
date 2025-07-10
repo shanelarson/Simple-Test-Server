@@ -829,6 +829,58 @@
         ))
       );
     }
+    // --- PositionBadges reusable component ---
+    // Usage: React.createElement(PositionBadges, { positions, videoCardSelector, videoSelector, secondsToTimeStr })
+    function PositionBadges({ positions, videoCardSelector = ".video-card", videoSelector = "video", secondsToTimeStr }) {
+      if (!Array.isArray(positions) || positions.length === 0) return null;
+      // Clean positions: must be positive, numeric, no duplicates (within float epsilon)
+      const EPS = 0.01;
+      const uniq = [];
+      (positions || []).forEach((p) => {
+        if (typeof p === "number" && p >= 0 && isFinite(p)) {
+          if (!uniq.some(e => Math.abs(e - p) < EPS)) uniq.push(p);
+        }
+      });
+      if (uniq.length === 0) return null;
+      // Click handler: finds the closest video card and seeks the child video
+      function handleSeek(posSec, event) {
+        // event.target = <span/>. Look up for videoCardSelector, then videoSelector inside.
+        let card = null, vdom = null;
+        try {
+          card = (event.target || {}).closest && typeof event.target.closest === "function"
+            ? event.target.closest(videoCardSelector)
+            : null;
+          vdom = card ? card.querySelector(videoSelector) : null;
+        } catch {}
+        if (vdom && typeof vdom.currentTime === "number") {
+          vdom.currentTime = posSec;
+          vdom.focus && vdom.focus();
+        }
+      }
+      // fallback secondsToTimeStr if not provided (should always pass for consistent style, but just in case)
+      const localSecondsToTimeStr = secondsToTimeStr || function (secs) {
+        secs = Math.floor(secs);
+        if (secs < 0) return "0:00";
+        const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+        if (h > 0) {
+          return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        } else {
+          return `${m}:${s.toString().padStart(2,'0')}`;
+        }
+      };
+      return React.createElement('div', { className: "tags-container", style: { marginTop: 8 } },
+        uniq.map((posSec, idx) =>
+          React.createElement('span', {
+            className: "tag-badge",
+            key: `pos-unified-${posSec}`,
+            tabIndex: 0,
+            style: { background: "#2675cb", color: "#fff", cursor: "pointer" },
+            title: "Jump to " + localSecondsToTimeStr(posSec),
+            onClick: (e) => handleSeek(posSec, e)
+          }, localSecondsToTimeStr(posSec))
+        )
+      );
+    }
 
     // The per-video card component (outside to avoid hooks-in-a-map misuses)
     function VideoCard({ video, loading, getShareUrl, handleCopy }) {
@@ -838,7 +890,6 @@
       );
       const [likeError, setLikeError] = useState("");
 
-      // Helper to format seconds to H:MM:SS or M:SS
       function secondsToTimeStr(secs) {
         secs = Math.floor(secs);
         if (secs < 0) return "0:00";
@@ -850,7 +901,6 @@
         }
       }
 
-      // Render
       return React.createElement(
         "div",
         { className: "video-card" },
@@ -886,36 +936,12 @@
               "No video URL"
             ),
         // --- Position Badges (display under video!) ---
-        Array.isArray(video.positions) && video.positions.length > 0
-          ? React.createElement(
-              'div',
-              { className: "tags-container", style: { marginTop: 8 } },
-              video.positions.map((posSec, idx) =>
-                typeof posSec === 'number' && posSec >= 0
-                  ? React.createElement(
-                      'span',
-                      {
-                        className: "tag-badge",
-                        key: "pos-" + posSec,
-                        tabIndex: 0,
-                        style: { background: "#2675cb", color: "#fff", cursor: "pointer" },
-                        title: "Jump to " + secondsToTimeStr(posSec),
-                        onClick: () => {
-                          // Find the video player in this card (first child node)
-                          const card = (event.target || {}).closest && typeof (event.target.closest) === "function" ? event.target.closest(".video-card") : null;
-                          const vdom = card ? card.querySelector("video") : null;
-                          if (vdom && typeof vdom.currentTime === "number") {
-                            vdom.currentTime = posSec;
-                            vdom.focus();
-                          }
-                        }
-                      },
-                      secondsToTimeStr(posSec)
-                    )
-                  : null
-              )
-            )
-          : null,
+        React.createElement(PositionBadges, {
+          positions: video.positions,
+          videoCardSelector: ".video-card",
+          videoSelector: "video",
+          secondsToTimeStr
+        }),
         // --- View Count ---
         React.createElement(
           "div",
@@ -1328,6 +1354,19 @@
             controls: true,
             style: { width: '100%', background: "var(--bg-video)", marginBottom: '12px', borderRadius: '6px' }
           }) : React.createElement("div", { style: { color: "var(--text-secondary)", marginBottom: "12px" } }, "No video URL available."),
+          // --- Position Badges (below video!) ---
+          React.createElement(PositionBadges, {
+            positions: video && video.positions,
+            videoCardSelector: ".video-detail-view",
+            videoSelector: "video",
+            secondsToTimeStr: function(secs) {
+              secs = Math.floor(secs);
+              if (secs < 0) return "0:00";
+              const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+              if (h > 0) return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+              else return `${m}:${s.toString().padStart(2,'0')}`;
+            }
+          }),
           // --- View Count ---
           React.createElement(
             "div",
@@ -1715,15 +1754,13 @@
         React.createElement(
           "div",
           { className: "video-list", style: { marginTop: 10 } },
-          results.map((v, i) =>
-            React.createElement(VideoCard, {
-              key: v._id || v.filenameHash || i,
-              video: v,
-              loading: false,
-              getShareUrl: getShareUrl,
-              handleCopy: handleCopy
-            })
-          )
+          results.map((v, i) => React.createElement(VideoCard, {
+            key: v._id || v.filenameHash || i,
+            video: v,
+            loading: false,
+            getShareUrl: getShareUrl,
+            handleCopy: handleCopy
+          }))
         )
       );
     }
@@ -1732,6 +1769,7 @@
   </script>
 </body>
 </html>
+
 
 
 
