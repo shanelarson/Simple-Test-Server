@@ -157,6 +157,47 @@
       const [uploading, setUploading] = useState(false);
       const [error, setError] = useState('');
       const [success, setSuccess] = useState('');
+      // Captcha states
+      const [captchaImage, setCaptchaImage] = useState('');
+      const [captchaHash, setCaptchaHash] = useState('');
+      const [captchaText, setCaptchaText] = useState('');
+      const [captchaLoading, setCaptchaLoading] = useState(false);
+      const [captchaError, setCaptchaError] = useState('');
+
+      function fetchCaptcha() {
+        setCaptchaLoading(true);
+        setCaptchaError('');
+        setCaptchaImage('');
+        setCaptchaHash('');
+        setCaptchaText('');
+        fetch('/api/captcha')
+          .then(async resp => {
+            if (resp.ok) return resp.json();
+            let data = null;
+            try { data = await resp.json(); } catch {}
+            throw new Error((data && data.error) ? data.error : "Failed to load captcha.");
+          })
+          .then(data => {
+            setCaptchaImage(data.image);
+            setCaptchaHash(data.hash);
+            setCaptchaError('');
+          })
+          .catch(err => {
+            setCaptchaError('Failed to load captcha. Please try again later.');
+            setCaptchaImage('');
+            setCaptchaHash('');
+          })
+          .finally(() => setCaptchaLoading(false));
+      }
+
+      // Fetch on mount and when Upload tab selected
+      useEffect(() => { fetchCaptcha(); }, []);
+
+      function handleRefreshCaptcha(e) {
+        e.preventDefault();
+        fetchCaptcha();
+      }
+
       function handleSubmit(e) {
         e.preventDefault();
         setError('');
@@ -169,12 +210,18 @@
           setError('File size cannot exceed 100MB.');
           return;
         }
+        if (!captchaHash || !captchaText.trim()) {
+          setError('Captcha is required.');
+          return;
+        }
         setUploading(true);
         const fd = new FormData();
         fd.append('title', title);
         fd.append('description', desc);
         fd.append('tags', tagsString);
         fd.append('video', file);
+        fd.append('captchaText', captchaText.trim());
+        fd.append('captchaHash', captchaHash);
         fetch('/api/upload', {
           method: 'POST',
           body: fd,
@@ -189,14 +236,18 @@
               try {
                 data = await resp.json();
               } catch {}
-              // Show server-provided rate limit error message if present, fallback generic otherwise
               throw new Error(data && data.error ? data.error : 'You have reached your upload limit. Please try again later.');
             }
-            // Try to extract error message for other error statuses
+            // Check for captcha error (400, specific message)
             let data = null;
             try {
               data = await resp.json();
             } catch {}
+            if (data && data.error && data.error === "The captcha you entered is incorrect. Please try again.") {
+              // Refresh captcha after error
+              fetchCaptcha();
+              throw new Error(data.error);
+            }
             throw new Error((data && data.error) ? data.error : 'Failed to upload video.');
           })
           .then(data => {
@@ -205,14 +256,16 @@
             setDesc('');
             setFile(null);
             setTagsString('');
+            setCaptchaText('');
+            fetchCaptcha();
             if (onUpload) onUpload();
           })
           .catch(err => {
-            // Use error message for rate limit and fall back for others
             setError(err.message && err.message !== 'Upload failed' ? err.message : 'Failed to upload video.');
           })
           .finally(() => setUploading(false));
       }
+
       return React.createElement(
         "form",
         {
@@ -247,9 +300,54 @@
           value: tagsString,
           onChange: e => setTagsString(e.target.value)
         }),
+
+        // --- CAPTCHA UI Section (just above submit) ---
+        React.createElement(
+          "div",
+          { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 2 } },
+          React.createElement("label", { htmlFor: "captchaText", style: { fontWeight: 500 } }, "Captcha:"),
+          captchaLoading
+            ? React.createElement("div", null, "Loading captcha...")
+            : captchaError
+              ? React.createElement("div", { style: { color: 'crimson', fontSize: "0.98em", marginBottom: 2 } },
+                  captchaError,
+                  React.createElement("button", { type: "button", style: { marginLeft: 12, marginTop: 3, fontSize: "0.93em" }, onClick: handleRefreshCaptcha }, "Retry")
+                )
+              : captchaImage
+                ? React.createElement(
+                    React.Fragment, 
+                    null, 
+                    React.createElement("img", {
+                      src: "data:image/png;base64," + captchaImage,
+                      alt: "captcha",
+                      style: { marginBottom: 3, marginTop: 2, padding: "2px 0", borderRadius: 3, border: "1px solid #bbb", width: 148, height: 48, objectFit: "cover", background: "#fcfcfc" }
+                    }),
+                    React.createElement("button", {
+                      type: "button",
+                      onClick: handleRefreshCaptcha,
+                      style: { width: 81, fontSize: "0.98em", alignSelf: 'flex-start', marginBottom: 1, marginLeft: 2, marginTop: 0 }
+                    }, "Refresh")
+                  )
+                : null,
+
+          React.createElement("input", {
+            id: "captchaText",
+            name: "captchaText",
+            type: "text",
+            autoComplete: "off",
+            placeholder: "Enter captcha here",
+            value: captchaText,
+            disabled: captchaLoading || !!captchaError,
+            onChange: e => setCaptchaText(e.target.value),
+            style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid #aaa", borderRadius: 4, padding: "5px 6px" }
+          }),
+          // Hidden input with salted captcha hash (ensures it's submitted)
+          React.createElement("input", { type: "hidden", name: "captchaHash", value: captchaHash || "" })
+        ),
+
         React.createElement(
           "button",
-          { type: "submit", disabled: uploading },
+          { type: "submit", disabled: uploading || captchaLoading || !!captchaError },
           uploading ? "Uploading..." : "Upload"
         ),
         error
@@ -268,6 +366,8 @@
           : null
       );
     }
+
+
     function VideoList({ refreshTrigger }) {
       const [videos, setVideos] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -988,6 +1088,7 @@
   </script>
 </body>
 </html>
+
 
 
 

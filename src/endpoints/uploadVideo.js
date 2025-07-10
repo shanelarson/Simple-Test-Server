@@ -5,18 +5,32 @@ import { insertVideo } from '../utils/mongo.js';
 import crypto from 'crypto';
 import { getClientIp } from '../utils/getClientIp.js';
 import { canUploadVideo, recordVideoUpload } from '../utils/rateLimitVideos.js';
+import { generateCaptcha, validateCaptcha } from '../utils/captcha.js';
 
 const router = Router();
+
+// Captcha generation endpoint
+// GET /api/captcha (returns { image: <base64>, hash: <hash> })
+router.get('/captcha', (req, res) => {
+  try {
+    const { image, hash } = generateCaptcha();
+    res.json({ image, hash });
+  } catch (err) {
+    console.error('Captcha generation error:', err);
+    res.status(500).json({ error: 'Failed to generate captcha.' });
+  }
+});
 
 // Multer config for file upload (100MB limit, memory storage for upload pipe-through)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
 });
+
 // POST /api/upload - Upload a video to S3, then save metadata to MongoDB
 router.post('/', upload.single('video'), async (req, res) => {
   try {
-    let { title, description } = req.body;
+    let { title, description, captchaText, captchaHash } = req.body;
     const videoFile = req.file;
     // Tags parsing
     let tagsInput = req.body.tags;
@@ -30,6 +44,18 @@ router.post('/', upload.single('video'), async (req, res) => {
 
     if (!title || !videoFile) {
       return res.status(400).json({ error: 'Missing required fields or file.' });
+    }
+    // --- CAPTCHA CHECK ---
+    if (
+      typeof captchaText !== "string"
+      || typeof captchaHash !== "string"
+      || !captchaText.trim()
+      || !captchaHash
+    ) {
+      return res.status(400).json({ error: 'Captcha is required.' });
+    }
+    if (!validateCaptcha(captchaText, captchaHash)) {
+      return res.status(400).json({ error: 'The captcha you entered is incorrect. Please try again.' });
     }
     // --- VIDEO RATE LIMIT CHECK ---
     const clientIp = getClientIp(req);
@@ -127,11 +153,7 @@ router.post('/', upload.single('video'), async (req, res) => {
     res.status(500).json({ error: 'Unexpected server error.' });
   }
 });
+
 export default router;
-
-
-
-
-
 
 
