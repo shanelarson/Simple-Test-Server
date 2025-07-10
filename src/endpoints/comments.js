@@ -5,16 +5,29 @@ import { getDb } from '../utils/mongo.js';
 import { moderateText } from '../utils/moderation.js';
 import { getClientIp } from '../utils/getClientIp.js';
 import { canComment, recordComment } from '../utils/rateLimitComments.js';
+import { validateCaptcha } from '../utils/captcha.js';
 
 const router = express.Router();
 
 
 // --- Add a comment to a video ---
-// POST /api/comments { videoId, content }
+// POST /api/comments { videoId, content, captchaText, captchaHash }
 router.post('/', async (req, res) => {
-  const { videoId, content } = req.body;
+  const { videoId, content, captchaText, captchaHash } = req.body;
   if (!videoId || typeof content !== 'string' || !content.trim()) {
     return res.status(400).json({ error: 'Missing videoId or comment content.' });
+  }
+  // CAPTCHA CHECK (same as upload)
+  if (
+    typeof captchaText !== "string"
+    || typeof captchaHash !== "string"
+    || !captchaText.trim()
+    || !captchaHash
+  ) {
+    return res.status(400).json({ error: 'Captcha is required.' });
+  }
+  if (!validateCaptcha(captchaText, captchaHash)) {
+    return res.status(400).json({ error: 'The captcha you entered is incorrect. Please try again.' });
   }
   // Sanitize content length
   if (content.length > 1000) {
@@ -151,6 +164,5 @@ router.get('/:videoId', async (req, res) => {
 export default router;
 // To use OpenAI moderation your environment must have OPENAI_API_KEY set (see README or deployment docs)
 // If you see "OpenAI moderation not configured", set the variable in your .env or deployment environment.
-
 
 

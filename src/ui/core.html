@@ -667,6 +667,12 @@
         const [comment, setComment] = useState("");
         // To reload after submit
         const [refreshKey, setRefreshKey] = useState(0);
+        // --- CAPTCHA states for comment form ---
+        const [captchaImage, setCaptchaImage] = useState('');
+        const [captchaHash, setCaptchaHash] = useState('');
+        const [captchaText, setCaptchaText] = useState('');
+        const [captchaLoading, setCaptchaLoading] = useState(false);
+        const [captchaError, setCaptchaError] = useState('');
 
         // Figure out what the backend expects for videoId param
         // Use same string type as backend does (filenameHash or _id as string)
@@ -696,6 +702,40 @@
               setFetchError(err.message || "Could not fetch comments.");
             });
         }, [resolvedId, refreshKey]);
+
+        // CAPTCHA: fetch logic for comments (same endpoint and logic as upload)
+        function fetchCaptcha() {
+          setCaptchaLoading(true);
+          setCaptchaError('');
+          setCaptchaImage('');
+          setCaptchaHash('');
+          setCaptchaText('');
+          fetch('/api/upload/captcha')
+            .then(async resp => {
+              if (resp.ok) return resp.json();
+              let data = null;
+              try { data = await resp.json(); } catch {}
+              throw new Error((data && data.error) ? data.error : "Failed to load captcha.");
+            })
+            .then(data => {
+              setCaptchaImage(data.image);
+              setCaptchaHash(data.hash);
+              setCaptchaError('');
+            })
+            .catch(err => {
+              setCaptchaError('Failed to load captcha. Please try again later.');
+              setCaptchaImage('');
+              setCaptchaHash('');
+            })
+            .finally(() => setCaptchaLoading(false));
+        }
+        // Fetch a captcha on mount and refreshKey (reset with every new comment added, to renew as in success)
+        useEffect(() => { fetchCaptcha(); }, [refreshKey]);
+        function handleRefreshCaptcha(e) {
+          e.preventDefault();
+          fetchCaptcha();
+        }
+
         function handleSubmit(e) {
           e.preventDefault();
           setSubmitSuccess("");
@@ -709,27 +749,38 @@
             setSubmitError("Comment is too long (1000 character limit).");
             return;
           }
+          if (!captchaHash || !captchaText.trim()) {
+            setSubmitError("Captcha is required.");
+            return;
+          }
           setSubmitting(true);
           fetch("/api/comments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ videoId: resolvedId, content: comment })
+            body: JSON.stringify({ videoId: resolvedId, content: comment, captchaText: captchaText.trim(), captchaHash })
           })
             .then(async res => {
               if (res.ok) return await res.json();
               let data = null;
               try { data = await res.json(); } catch {}
+              // Captcha failure (refresh on error as on upload)
+              if (data && data.error && data.error === "The captcha you entered is incorrect. Please try again.") {
+                fetchCaptcha();
+                throw new Error(data.error);
+              }
               // Special moderation error:
               if (data && typeof data.error === "string" && data.error === "Your comment could not be added because it may violate our content guidelines.") {
                 throw new Error(data.error);
               }
-              // Otherwise generic
+              // Otherwise generic (refresh captcha after any error except moderation as well)
+              fetchCaptcha();
               throw new Error((data && data.error) ? data.error : "Could not submit comment.");
             })
             .then(() => {
               setComment("");
+              setCaptchaText("");
               setSubmitSuccess("Comment added!");
-              setRefreshKey(r => r + 1); // Re-fetch comments
+              setRefreshKey(r => r + 1); // Re-fetch comments (also refreshes captcha!)
             })
             .catch(err => {
               setSubmitError(err.message || "Could not submit comment.");
@@ -770,6 +821,7 @@
                     )
                   )
                 ),
+
           React.createElement("form", { onSubmit: handleSubmit, style: { marginTop: 10 } },
             React.createElement("textarea", {
               value: comment,
@@ -780,11 +832,54 @@
               maxLength: 1000,
               disabled: submitting
             }),
+
+            // CAPTCHA UI Section (below textarea, above buttons)
+            React.createElement(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 2 } },
+              React.createElement("label", { htmlFor: "captchaText", style: { fontWeight: 500 } }, "Captcha:"),
+              captchaLoading
+                ? React.createElement("div", null, "Loading captcha...")
+                : captchaError
+                  ? React.createElement("div", { style: { color: 'crimson', fontSize: "0.98em", marginBottom: 2 } },
+                      captchaError,
+                      React.createElement("button", { type: "button", style: { marginLeft: 12, marginTop: 3, fontSize: "0.93em" }, onClick: handleRefreshCaptcha }, "Retry")
+                    )
+                  : captchaImage
+                    ? React.createElement(
+                        React.Fragment,
+                        null,
+                        React.createElement("img", {
+                          src: "data:image/png;base64," + captchaImage,
+                          alt: "captcha",
+                          style: { marginBottom: 3, marginTop: 2, padding: "2px 0", borderRadius: 3, border: "1px solid #bbb", width: 148, height: 48, objectFit: "cover", background: "#fcfcfc" }
+                        }),
+                        React.createElement("button", {
+                          type: "button",
+                          onClick: handleRefreshCaptcha,
+                          style: { width: 81, fontSize: "0.98em", alignSelf: 'flex-start', marginBottom: 1, marginLeft: 2, marginTop: 0 }
+                        }, "Refresh")
+                      )
+                    : null,
+              React.createElement("input", {
+                id: "captchaText",
+                name: "captchaText",
+                type: "text",
+                autoComplete: "off",
+                placeholder: "Enter captcha here",
+                value: captchaText,
+                disabled: captchaLoading || !!captchaError,
+                onChange: e => setCaptchaText(e.target.value),
+                style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid #aaa", borderRadius: 4, padding: "5px 6px" }
+              }),
+              React.createElement("input", { type: "hidden", name: "captchaHash", value: captchaHash || "" })
+            ),
+
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
               React.createElement("button", {
                 type: "submit",
-                disabled: submitting || comment.length === 0,
-                style: { background: "#1976d2", color: "#fff", fontWeight: 500, borderRadius: 4, border: "none", padding: "7px 19px", cursor: submitting ? "not-allowed" : "pointer" }
+                disabled: submitting || comment.length === 0 || captchaLoading || !!captchaError,
+                style: { background: "#1976d2", color: "#fff", fontWeight: 500, borderRadius: 4, border: "none", padding: "7px 19px", cursor: (submitting || captchaLoading || !!captchaError) ? "not-allowed" : "pointer" }
               }, submitting ? "Adding..." : "Add Comment"),
               submitError ? React.createElement("span", { style: { color: "crimson" } }, submitError) : null,
               submitSuccess ? React.createElement("span", { style: { color: "green" } }, submitSuccess) : null
@@ -795,6 +890,8 @@
 
       useEffect(() => {
         if (!id) {
+
+
           setError("No video specified.");
           setLoading(false);
           return;
@@ -1172,6 +1269,7 @@
   </script>
 </body>
 </html>
+
 
 
 
