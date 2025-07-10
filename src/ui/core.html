@@ -923,16 +923,15 @@
               setSubmitting(false);
             });
         }
-
         // --- Comments List + Form JSX ---
         return React.createElement("div", { style: { marginTop: 32 } },
           React.createElement("h3", { style: { fontWeight: 500, fontSize: "1.11em", marginBottom: 10 } }, "Comments"),
           fetching
             ? React.createElement("div", null, "Loading comments...")
             : fetchError
-              ? React.createElement("div", { style: { color: "crimson", marginBottom: 8 } }, fetchError)
+              ? React.createElement("div", { style: { color: "var(--color-error)", marginBottom: 8 } }, fetchError)
               : comments.length === 0
-                ? React.createElement("div", { style: { color: "#666", marginBottom: 8 } }, "No comments yet.")
+                ? React.createElement("div", { style: { color: "var(--text-secondary)", marginBottom: 8 } }, "No comments yet.")
                 : React.createElement("div", {
                     style: { marginBottom: 12, marginTop: 2, display: "flex", flexDirection: "column", gap: 8 }
                   },
@@ -940,17 +939,17 @@
                     React.createElement("div", {
                       key: (c._id || i),
                       style: {
-                        border: "1px solid #ececec",
+                        border: "1px solid var(--border-main)",
                         borderRadius: 4,
                         padding: "7px 10px",
-                        background: "#f9fafb"
+                        background: "var(--bg-comment)"
                       }
                     },
                     React.createElement("div", {
-                      style: { fontSize: "1em", whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 3 }
+                      style: { fontSize: "1em", whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 3, color: "var(--text-main)" }
                     }, c.content),
                     React.createElement("div", {
-                      style: { color: "#888", fontSize: "0.94em" }
+                      style: { color: "var(--text-tertiary)", fontSize: "0.94em" }
                     }, formatDate(c.created))
                     )
                   )
@@ -962,7 +961,7 @@
               onChange: e => { setComment(e.target.value); setSubmitSuccess(""); setSubmitError(""); },
               placeholder: "Add a comment...",
               rows: 3,
-              style: { width: "100%", resize: "vertical", fontSize: "1em", marginBottom: 7, border: "1px solid #ccc", borderRadius: 4, padding: 6, maxHeight: 180 },
+              style: { width: "100%", resize: "vertical", fontSize: "1em", marginBottom: 7, border: "1px solid var(--border-input)", borderRadius: 4, background: "var(--input-bg)", color: "var(--input-text)", padding: 6, maxHeight: 180, transition: "background 0.15s, color 0.15s, border 0.17s" },
               maxLength: 1000,
               disabled: submitting
             }),
@@ -975,7 +974,7 @@
               captchaLoading
                 ? React.createElement("div", null, "Loading captcha...")
                 : captchaError
-                  ? React.createElement("div", { style: { color: 'crimson', fontSize: "0.98em", marginBottom: 2 } },
+                  ? React.createElement("div", { style: { color: 'var(--color-error)', fontSize: "0.98em", marginBottom: 2 } },
                       captchaError,
                       React.createElement("button", { type: "button", style: { marginLeft: 12, marginTop: 3, fontSize: "0.93em" }, onClick: handleRefreshCaptcha }, "Retry")
                     )
@@ -986,7 +985,7 @@
                         React.createElement("img", {
                           src: "data:image/png;base64," + captchaImage,
                           alt: "captcha",
-                          style: { marginBottom: 3, marginTop: 2, padding: "2px 0", borderRadius: 3, border: "1px solid #bbb", width: 148, height: 48, objectFit: "cover", background: "#fcfcfc" }
+                          style: { marginBottom: 3, marginTop: 2, padding: "2px 0", borderRadius: 3, border: "1px solid var(--border-input)", width: 148, height: 48, objectFit: "cover", background: "var(--bg-captcha)" }
                         }),
                         React.createElement("button", {
                           type: "button",
@@ -1004,7 +1003,7 @@
                 value: captchaText,
                 disabled: captchaLoading || !!captchaError,
                 onChange: e => setCaptchaText(e.target.value),
-                style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid #aaa", borderRadius: 4, padding: "5px 6px" }
+                style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid var(--border-input)", borderRadius: 4, padding: "5px 6px", background: "var(--input-bg)", color: "var(--input-text)" }
               }),
               React.createElement("input", { type: "hidden", name: "captchaHash", value: captchaHash || "" })
             ),
@@ -1013,10 +1012,10 @@
               React.createElement("button", {
                 type: "submit",
                 disabled: submitting || comment.length === 0 || captchaLoading || !!captchaError,
-                style: { background: "#1976d2", color: "#fff", fontWeight: 500, borderRadius: 4, border: "none", padding: "7px 19px", cursor: (submitting || captchaLoading || !!captchaError) ? "not-allowed" : "pointer" }
+                style: { background: "var(--bg-btn)", color: "var(--btn-text)", fontWeight: 500, borderRadius: 4, border: "none", padding: "7px 19px", cursor: (submitting || captchaLoading || !!captchaError) ? "not-allowed" : "pointer" }
               }, submitting ? "Adding..." : "Add Comment"),
-              submitError ? React.createElement("span", { style: { color: "crimson" } }, submitError) : null,
-              submitSuccess ? React.createElement("span", { style: { color: "green" } }, submitSuccess) : null
+              submitError ? React.createElement("span", { style: { color: "var(--color-error)" } }, submitError) : null,
+              submitSuccess ? React.createElement("span", { style: { color: "var(--color-success)" } }, submitSuccess) : null
             )
           )
         );
@@ -1504,5 +1503,6 @@
   </script>
 </body>
 </html>
+
 
 
