@@ -300,6 +300,30 @@
       const [captchaText, setCaptchaText] = useState('');
       const [captchaLoading, setCaptchaLoading] = useState(false);
       const [captchaError, setCaptchaError] = useState('');
+      // --- Track and detect theme (light/dark) so we can request correct captcha and update on theme change
+      const [theme, setTheme] = useState(() => {
+        if (typeof document !== "undefined") {
+          if (document.body.classList.contains("theme-dark")) return "dark";
+          return "light";
+        }
+        return "dark";
+      });
+
+      // Effect to update theme state when body class changes (using a MutationObserver)
+      useEffect(() => {
+        if (typeof document === "undefined") return;
+        const updateTheme = () => {
+          if (document.body.classList.contains("theme-dark")) setTheme("dark");
+          else setTheme("light");
+        };
+        updateTheme();
+        // Observe for class changes on body
+        const observer = new MutationObserver(() => {
+          updateTheme();
+        });
+        observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+        return () => observer.disconnect();
+      }, []);
 
       // Cleanup preview URL on unmount
       useEffect(() => {
@@ -319,13 +343,15 @@
           }
         };
       }, [previewUrl]);
-      function fetchCaptcha() {
+      // Fetch a captcha image for the correct theme
+      function fetchCaptcha(t) {
+        const themeToFetch = t || theme;
         setCaptchaLoading(true);
         setCaptchaError('');
         setCaptchaImage('');
         setCaptchaHash('');
         setCaptchaText('');
-        fetch('/api/upload/captcha')
+        fetch('/api/upload/captcha?theme=' + encodeURIComponent(themeToFetch))
           .then(async resp => {
             if (resp.ok) return resp.json();
             let data = null;
@@ -345,7 +371,7 @@
           .finally(() => setCaptchaLoading(false));
       }
       // Fetch on mount and when Upload tab selected
-      useEffect(() => { fetchCaptcha(); }, []);
+      useEffect(() => { fetchCaptcha(theme); }, [theme]);
 
       function handleRefreshCaptcha(e) {
         e.preventDefault();
@@ -519,7 +545,6 @@
           value: tagsString,
           onChange: e => setTagsString(e.target.value)
         }),
-
         // --- CAPTCHA UI Section (just above submit) ---
         React.createElement(
           "div",
@@ -534,12 +559,21 @@
                 )
               : captchaImage
                 ? React.createElement(
-                    React.Fragment, 
-                    null, 
+                    React.Fragment,
+                    null,
                     React.createElement("img", {
                       src: "data:image/png;base64," + captchaImage,
                       alt: "captcha",
-                      style: { marginBottom: 3, marginTop: 2, padding: "2px 0", borderRadius: 3, border: "1px solid #bbb", width: 148, height: 48, objectFit: "cover", background: "#fcfcfc" }
+                      style: {
+                        marginBottom: 3,
+                        marginTop: 2,
+                        padding: "2px 0",
+                        borderRadius: 3,
+                        border: "1px solid var(--border-input)",
+                        width: 148, height: 48,
+                        objectFit: "cover",
+                        background: "var(--bg-captcha)"
+                      }
                     }),
                     React.createElement("button", {
                       type: "button",
@@ -548,7 +582,6 @@
                     }, "Refresh")
                   )
                 : null,
-
           React.createElement("input", {
             id: "captchaText",
             name: "captchaText",
@@ -558,7 +591,7 @@
             value: captchaText,
             disabled: captchaLoading || !!captchaError,
             onChange: e => setCaptchaText(e.target.value),
-            style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid #aaa", borderRadius: 4, padding: "5px 6px" }
+            style: { width: 182, fontSize: "1.05em", fontWeight: 500, letterSpacing: 1, border: "1px solid var(--border-input)", borderRadius: 4, padding: "5px 6px", background: "var(--input-bg)", color: "var(--input-text)" }
           }),
           // Hidden input with salted captcha hash (ensures it's submitted)
           React.createElement("input", { type: "hidden", name: "captchaHash", value: captchaHash || "" })
@@ -1503,6 +1536,7 @@
   </script>
 </body>
 </html>
+
 
 
 

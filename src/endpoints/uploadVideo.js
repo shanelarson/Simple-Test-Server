@@ -13,13 +13,19 @@ const router = Router();
 // GET /api/captcha (returns { image: <base64>, hash: <hash> })
 router.get('/captcha', (req, res) => {
   try {
-    const { image, hash } = generateCaptcha();
+    // Accept ?theme=dark or ?theme=light, fallback to 'dark' as default if missing/invalid
+    let theme = req.query.theme;
+    if (theme !== 'dark' && theme !== 'light') {
+      theme = 'dark';
+    }
+    const { image, hash } = generateCaptcha({ theme });
     res.json({ image, hash });
   } catch (err) {
     console.error('Captcha generation error:', err);
     res.status(500).json({ error: 'Failed to generate captcha.' });
   }
 });
+
 
 // Multer config for file upload (100MB limit, memory storage for upload pipe-through)
 const upload = multer({
@@ -155,5 +161,4 @@ router.post('/', upload.single('video'), async (req, res) => {
 });
 
 export default router;
-
 
