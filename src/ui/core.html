@@ -163,14 +163,13 @@
       const [captchaText, setCaptchaText] = useState('');
       const [captchaLoading, setCaptchaLoading] = useState(false);
       const [captchaError, setCaptchaError] = useState('');
-
       function fetchCaptcha() {
         setCaptchaLoading(true);
         setCaptchaError('');
         setCaptchaImage('');
         setCaptchaHash('');
         setCaptchaText('');
-        fetch('/api/captcha')
+        fetch('/api/upload/captcha')
           .then(async resp => {
             if (resp.ok) return resp.json();
             let data = null;
@@ -189,7 +188,6 @@
           })
           .finally(() => setCaptchaLoading(false));
       }
-
       // Fetch on mount and when Upload tab selected
       useEffect(() => { fetchCaptcha(); }, []);
 
@@ -1088,6 +1086,7 @@
   </script>
 </body>
 </html>
+
 
 
 
